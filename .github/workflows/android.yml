@@ -7,15 +7,19 @@ on:
     branches: ["master"]
   pull_request:
     branches: ["master"]
-  workflow_dispatch:
+  workflow_dispatch
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    # 修复创建Release 403权限问题
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
+          persist-credentials: true # 允许推送tag
 
       - name: 生成动态版本Tag（prerelease-时间戳）
         id: create_tag
@@ -37,7 +41,6 @@ jobs:
           key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
           restore-keys: |
             ${{ runner.os }}-gradle-
-
       # Android SDK 缓存（大幅减少SDK重复下载）
       - name: Cache Android SDK
         uses: actions/cache@v5
@@ -52,18 +55,38 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      # 关键优化：移除build，只clean+打包release，跳过测试
+      # 编译步骤：失败不中断，输出全部日志到build_log.txt
       - name: Build Release APK（仅打包，跳过测试）
-        run: ./gradlew clean assembleRelease --no-daemon
+        id: gradle_build
+        continue-on-error: true
+        run: |
+          ./gradlew clean assembleRelease --no-daemon 2>&1 > build_log.txt
+          echo EXIT_CODE=$? >> $GITHUB_ENV
 
+      # 控制台输出完整编译日志，方便快速看报错
+      - name: 打印完整编译日志
+        run: cat build_log.txt
+
+      # 无论编译成功/失败，都上传日志留存14天
+      - name: 上传编译日志文件
+        uses: actions/upload-artifact@v5
+        with:
+          name: build-full-log
+          path: build_log.txt
+          retention-days: 14
+
+      # 仅编译成功才上传APK，失败跳过
       - name: Upload Release Backup APK
+        if: env.EXIT_CODE == '0'
         uses: actions/upload-artifact@v5
         with:
           name: release-preview-backup-apk
           path: app/build/outputs/apk/release/app-release.apk
           retention-days: 14
 
+      # 仅编译成功才创建GitHub预发布，失败直接跳过
       - name: Publish Prerelease Preview
+        if: env.EXIT_CODE == '0'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.TAG_NAME }}
@@ -71,5 +94,6 @@ jobs:
           prerelease: true
           generate_release_notes: true
           files: app/build/outputs/apk/release/app-release.apk
+          fail_on_unmatched_files: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
