@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- 暗色模式主题：drawable-night 目录下的图标将被使用 -->
+    <style name="Theme.Eggyhub" parent="android:Theme.Material.NoActionBar" />
+
+</resources>

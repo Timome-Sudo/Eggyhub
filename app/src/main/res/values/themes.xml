@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- 亮色模式主题：drawable 目录下的图标将被使用 -->
+    <style name="Theme.Eggyhub" parent="android:Theme.Material.Light.NoActionBar" />
+
+</resources>
