@@ -8,7 +8,7 @@ on:
     branches: ["master"]
   pull_request:
     branches: ["master"]
-  workflow_dispatch
+  workflow_dispatch:
 
 jobs:
   build:
@@ -16,7 +16,6 @@ jobs:
     permissions:
       contents: write
     steps:
-      # 拉取源码，开启下载进度百分比显示
       - name: 拉取源码
         uses: actions/checkout@v5
         with:
@@ -28,7 +27,6 @@ jobs:
         id: create_tag
         run: echo "TAG_NAME=prerelease-$(date +'%Y%m%d-%H%M')" >> $GITHUB_ENV
 
-      # JDK 使用官方默认源，开启下载进度输出
       - name: Set up JDK 17
         uses: actions/setup-java@v5
         with:
@@ -36,7 +34,6 @@ jobs:
           distribution: 'temurin'
           show-progress: true
 
-      # Gradle 缓存
       - name: Cache Gradle packages
         uses: actions/cache@v5
         with:
@@ -47,36 +44,30 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      # 不修改Gradle官方下载地址，保持默认源
-      - name: 检查Gradle配置（保持官方源）
-        run: echo "使用Gradle官方默认分发源，不替换镜像"
+      - name: 检查Gradle配置（使用官方默认源）
+        run: echo "使用Gradle官方默认分发源"
 
-      # Android SDK 缓存
       - name: Cache Android SDK
         uses: actions/cache@v5
         with:
           path: ~/android-sdk
           key: ${{ runner.os }}-android-sdk
 
-      # Android SDK 使用官方默认仓库，不配置国内镜像
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
         with:
           show-progress: true
 
-      - name: 赋予gradlew执行权限
+      - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      # Kotlin项目构建，不注入阿里maven，完全使用项目原有官方仓库
       - name: Build Release APK
         id: gradle_build
         continue-on-error: true
         run: |
-          # 不修改build.gradle.kts仓库配置，完全沿用项目默认源
           ./gradlew clean assembleRelease --no-daemon --info 2>&1 > build_log.txt
           echo EXIT_CODE=$? >> $GITHUB_ENV
 
-      # 持久保存编译日志
       - name: 上传完整编译日志
         uses: actions/upload-artifact@v5
         with:
@@ -84,14 +75,12 @@ jobs:
           path: build_log.txt
           retention-days: 14
 
-      # 流水线最后完整输出全部编译日志
       - name: 打印全部编译日志
         run: |
-          echo "===================== 完整编译日志分割线 ====================="
+          echo "===================== 完整编译日志开始 ====================="
           cat build_log.txt
-          echo "===================== 日志结束 ====================="
+          echo "===================== 完整编译日志结束 ====================="
 
-      # 仅编译成功才上传APK
       - name: Upload Release Backup APK
         if: env.EXIT_CODE == '0'
         uses: actions/upload-artifact@v5
@@ -100,7 +89,6 @@ jobs:
           path: app/build/outputs/apk/release/app-release.apk
           retention-days: 14
 
-      # 仅编译成功才创建预发布版本
       - name: Publish Prerelease Preview
         if: env.EXIT_CODE == '0'
         uses: softprops/action-gh-release@v2
