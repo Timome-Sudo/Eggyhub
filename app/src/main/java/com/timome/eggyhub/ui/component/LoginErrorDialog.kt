@@ -42,6 +42,7 @@ fun LoginErrorDialog(
     title: String = "登录失败",
     message: String = "",
     onConfirm: () -> Unit = {},
+    onContactClick: () -> Unit = {},
     onDismiss: () -> Unit = {}
 ) {
     if (!show) return
@@ -104,10 +105,7 @@ fun LoginErrorDialog(
                     }
 
                     Button(
-                        onClick = {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://pd.qq.com/s/a41jwb93m"))
-                            context.startActivity(intent)
-                        },
+                        onClick = { onContactClick() },
                         modifier = Modifier
                             .weight(1f)
                             .height(48.dp),

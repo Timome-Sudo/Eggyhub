@@ -2,6 +2,8 @@ package com.timome.eggyhub.ui.screen
 
 import android.content.Context
 import android.widget.Toast
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -33,6 +35,8 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.timome.eggyhub.ui.component.CaptchaDialog
+import com.timome.eggyhub.ui.component.ContactAuthorDialog
+import com.timome.eggyhub.ui.component.DeveloperSelectDialog
 import com.timome.eggyhub.ui.component.LoadingDialog
 import com.timome.eggyhub.ui.component.LoginErrorDialog
 import com.timome.eggyhub.ui.component.PasswordErrorDialog
@@ -99,10 +103,18 @@ fun LoginScreen(
     var emailError by remember { mutableStateOf<String?>(null) }
     var passwordError by remember { mutableStateOf<String?>(null) }
 
+    // 连续点击"登录"文本的计数
+    var clickCount by remember { mutableStateOf(0) }
+    var lastClickTime by remember { mutableStateOf(0L) }
+
     // 错误弹窗状态
     var showPasswordErrorDialog by remember { mutableStateOf(false) }
     var showLoginErrorDialog by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
+
+    // 联系作者相关弹窗状态
+    var showContactAuthorDialog by remember { mutableStateOf(false) }
+    var showDeveloperSelectDialog by remember { mutableStateOf(false) }
 
     // 人机验证弹窗状态
     var showCaptchaDialog by remember { mutableStateOf(false) }
@@ -258,7 +270,40 @@ fun LoginScreen(
                 text = "登录",
                 style = MaterialTheme.typography.displayMedium,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .clickable(
+                        onClick = {
+                            val now = System.currentTimeMillis()
+                            if (now - lastClickTime < 1500L) {
+                                clickCount += 1
+                                if (clickCount >= 7) {
+                                    clickCount = 0
+                                    Toast.makeText(context, "已跳过登录", Toast.LENGTH_SHORT).show()
+                                    coroutineScope.launch {
+                                        onLoginSuccess(
+                                            "",
+                                            "访客",
+                                            "",
+                                            "",
+                                            0,
+                                            "user",
+                                            "0",
+                                            "",
+                                            "",
+                                            "",
+                                            ""
+                                        )
+                                    }
+                                }
+                            } else {
+                                clickCount = 1
+                            }
+                            lastClickTime = now
+                        },
+                        indication = null,
+                        interactionSource = remember { MutableInteractionSource() }
+                    )
             )
 
             Spacer(modifier = Modifier.height(48.dp))
@@ -407,9 +452,31 @@ fun LoginScreen(
         onConfirm = {
             showLoginErrorDialog = false
         },
+        onContactClick = {
+            // 关闭错误弹窗，打开联系作者选择弹窗
+            showLoginErrorDialog = false
+            showContactAuthorDialog = true
+        },
         onDismiss = {
             showLoginErrorDialog = false
         }
+    )
+
+    // 联系作者选择弹窗
+    ContactAuthorDialog(
+        show = showContactAuthorDialog,
+        onDismiss = { showContactAuthorDialog = false },
+        onEmailClick = {
+            // 关闭联系作者弹窗，打开开发者选择弹窗
+            showContactAuthorDialog = false
+            showDeveloperSelectDialog = true
+        }
+    )
+
+    // 开发者选择弹窗
+    DeveloperSelectDialog(
+        show = showDeveloperSelectDialog,
+        onDismiss = { showDeveloperSelectDialog = false }
     )
 
     // 人机验证弹窗（验证通过后发起真正的登录请求）
