@@ -5,6 +5,7 @@ env:
   APK_DIR: app/build/outputs/apk/release
   ORIG_APK: app-release-unsigned.apk
   RENAME_APK: app-prerelease-unsigned.apk
+  TZ: Asia/Shanghai
 
 on:
   push:
@@ -26,20 +27,11 @@ jobs:
           persist-credentials: true
           show-progress: true
 
-      - name: 获取发布时间与时区信息
+      - name: 获取北京时间并生成发布信息
         run: |
-          if API_DATA=$(curl -fsSL https://worldtimeapi.org/api/timezone/Asia/Shanghai); then
-            ISO_DATETIME=$(echo "$API_DATA" | jq -r '.datetime')
-            NOW=$(date -d "$ISO_DATETIME" +'%Y.%m.%d.%H.%M.%S')
-            TIME_ZONE_LABEL="北京时间 UTC+8"
-            TAG_TIME=$(date -d "$ISO_DATETIME" +'%Y%m%d-%H%M%S')
-          else
-            # 网络接口失败，读取系统本地时区+系统时间
-            SYS_TZ=$(readlink /etc/localtime | sed -e 's/^.*zoneinfo\///')
-            NOW=$(date +'%Y.%m.%d.%H.%M.%S')
-            TIME_ZONE_LABEL="系统时区${SYS_TZ}"
-            TAG_TIME=$(date +'%Y%m%d-%H%M%S')
-          fi
+          NOW=$(date +'%Y.%m.%d.%H.%M.%S')
+          TAG_TIME=$(date +'%Y%m%d-%H%M%S')
+          TIME_ZONE_LABEL="北京时间 UTC+8"
 
           echo "TAG_NAME=prerelease-${TAG_TIME}" >> $GITHUB_ENV
           echo "RELEASE_TITLE=beta($NOW ${TIME_ZONE_LABEL})" >> $GITHUB_ENV
