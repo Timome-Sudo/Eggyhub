@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -42,30 +41,12 @@ import androidx.core.content.FileProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.io.File
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-
-/**
- * 开发者信息
- */
-private data class DeveloperInfo(
-    val name: String,
-    val title: String,
-    val email: String
-)
-
-private val developers = listOf(
-    DeveloperInfo("timome", "该版本开发者", "timome@example.com"),
-    DeveloperInfo("云云鬼才", "管理员，官方版本开发者", "yungg@example.com"),
-    DeveloperInfo("水杨酸酸", "创始人，网站运营者", "shuiyss@example.com")
-)
 
 /**
  * 收集 logcat 并保存到缓存目录
  * @return logcat 文件的 Uri，失败则返回 null
  */
-private fun collectLogcat(context: Context): Uri? {
+fun collectLogcat(context: Context): Uri? {
     return try {
         val logcatFile = File(context.cacheDir, "eggyhub_logcat_${System.currentTimeMillis()}.txt")
         val process = Runtime.getRuntime().exec("logcat -d -v time")
@@ -85,7 +66,7 @@ private fun collectLogcat(context: Context): Uri? {
 /**
  * 调用系统邮件应用发送邮件
  */
-private fun sendEmail(
+fun sendEmailWithAttachment(
     context: Context,
     toEmail: String,
     subject: String,
@@ -106,14 +87,39 @@ private fun sendEmail(
 }
 
 /**
+ * 开发者卡片信息
+ */
+private sealed class DeveloperCard {
+    data class DirectEmail(
+        val name: String,
+        val title: String,
+        val email: String
+    ) : DeveloperCard()
+
+    data class EmailSelect(
+        val name: String,
+        val title: String
+    ) : DeveloperCard()
+}
+
+private val developerCards = listOf(
+    DeveloperCard.DirectEmail("timome", "该版本开发者", "timome@qq.com"),
+    DeveloperCard.EmailSelect("云云鬼才", "管理员，官方版本开发者"),
+    DeveloperCard.DirectEmail("水杨酸酸", "创始人，网站运营者", "3970771550@qq.com")
+)
+
+/**
  * 开发者选择弹窗
- * - 三个卡片：timome / 云云鬼才 / 水杨酸酸
- * - 点击卡片 → 显示中心圆形进度条 → 收集 logcat → 完成后调用邮件应用
+ * - timome / 水杨酸酸：点击后直接收集 logcat 并发送邮件
+ * - 云云鬼才：点击后调用回调，弹出邮箱选择弹窗（不关闭当前弹窗）
+ * - 返回箭头：调用 onBack 回调返回上一个弹窗
  * - 不可点击外部关闭
  */
 @Composable
 fun DeveloperSelectDialog(
     show: Boolean,
+    onBack: () -> Unit = {},
+    onYunggClick: () -> Unit = {},
     onDismiss: () -> Unit = {}
 ) {
     if (!show) return
@@ -123,16 +129,16 @@ fun DeveloperSelectDialog(
     var isCollecting by remember { mutableStateOf(false) }
 
     /**
-     * 点击开发者卡片：先收集 logcat，然后发送邮件
+     * 直接发送邮件的开发者卡片点击处理
      */
-    fun onDeveloperClick(developer: DeveloperInfo) {
+    fun onDirectEmailClick(email: String) {
         isCollecting = true
         coroutineScope.launch(Dispatchers.IO) {
             val attachmentUri = collectLogcat(context)
             isCollecting = false
             val subject = "我遇到了问题！"
             val body = "我遇到了（用户自行填写），附件为 log cat"
-            sendEmail(context, developer.email, subject, body, attachmentUri)
+            sendEmailWithAttachment(context, email, subject, body, attachmentUri)
         }
     }
 
@@ -150,7 +156,6 @@ fun DeveloperSelectDialog(
                 .padding(16.dp)
         ) {
             if (isCollecting) {
-                // 收集 logcat 时显示中心圆形进度条
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -176,12 +181,12 @@ fun DeveloperSelectDialog(
                         .padding(20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // 标题行
+                    // 标题行（返回箭头）
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        IconButton(onClick = { onDismiss() }) {
+                        IconButton(onClick = { onBack() }) {
                             Icon(
                                 imageVector = Icons.Default.ArrowBack,
                                 contentDescription = "返回",
@@ -204,28 +209,58 @@ fun DeveloperSelectDialog(
                         modifier = Modifier.fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        developers.forEach { developer ->
-                            OutlinedCard(
-                                onClick = { onDeveloperClick(developer) },
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(16.dp)
-                                ) {
-                                    Text(
-                                        text = developer.name,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-                                    Spacer(modifier = Modifier.height(6.dp))
-                                    Text(
-                                        text = developer.title,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
+                        developerCards.forEach { card ->
+                            when (card) {
+                                is DeveloperCard.DirectEmail -> {
+                                    OutlinedCard(
+                                        onClick = { onDirectEmailClick(card.email) },
+                                        shape = RoundedCornerShape(12.dp),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(16.dp)
+                                        ) {
+                                            Text(
+                                                text = card.name,
+                                                style = MaterialTheme.typography.titleMedium,
+                                                fontWeight = FontWeight.SemiBold
+                                            )
+                                            Spacer(modifier = Modifier.height(6.dp))
+                                            Text(
+                                                text = card.title,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                }
+
+                                is DeveloperCard.EmailSelect -> {
+                                    OutlinedCard(
+                                        onClick = { onYunggClick() },
+                                        shape = RoundedCornerShape(12.dp),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(16.dp)
+                                        ) {
+                                            Text(
+                                                text = card.name,
+                                                style = MaterialTheme.typography.titleMedium,
+                                                fontWeight = FontWeight.SemiBold
+                                            )
+                                            Spacer(modifier = Modifier.height(6.dp))
+                                            Text(
+                                                text = card.title,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }

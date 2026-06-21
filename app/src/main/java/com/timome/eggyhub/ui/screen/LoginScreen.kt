@@ -40,6 +40,7 @@ import com.timome.eggyhub.ui.component.DeveloperSelectDialog
 import com.timome.eggyhub.ui.component.LoadingDialog
 import com.timome.eggyhub.ui.component.LoginErrorDialog
 import com.timome.eggyhub.ui.component.PasswordErrorDialog
+import com.timome.eggyhub.ui.component.YunggEmailSelectDialog
 import com.timome.eggyhub.data.ApiService
 import kotlinx.coroutines.launch
 import okhttp3.Call
@@ -115,6 +116,7 @@ fun LoginScreen(
     // 联系作者相关弹窗状态
     var showContactAuthorDialog by remember { mutableStateOf(false) }
     var showDeveloperSelectDialog by remember { mutableStateOf(false) }
+    var showYunggEmailDialog by remember { mutableStateOf(false) }
 
     // 人机验证弹窗状态
     var showCaptchaDialog by remember { mutableStateOf(false) }
@@ -465,6 +467,11 @@ fun LoginScreen(
     // 联系作者选择弹窗
     ContactAuthorDialog(
         show = showContactAuthorDialog,
+        onBack = {
+            // 返回上一个弹窗：LoginErrorDialog
+            showContactAuthorDialog = false
+            showLoginErrorDialog = true
+        },
         onDismiss = { showContactAuthorDialog = false },
         onEmailClick = {
             // 关闭联系作者弹窗，打开开发者选择弹窗
@@ -476,7 +483,22 @@ fun LoginScreen(
     // 开发者选择弹窗
     DeveloperSelectDialog(
         show = showDeveloperSelectDialog,
+        onBack = {
+            // 返回上一个弹窗：ContactAuthorDialog
+            showDeveloperSelectDialog = false
+            showContactAuthorDialog = true
+        },
+        onYunggClick = {
+            // 云云鬼才点击后：弹出邮箱选择弹窗（不关闭当前弹窗）
+            showYunggEmailDialog = true
+        },
         onDismiss = { showDeveloperSelectDialog = false }
+    )
+
+    // 云云鬼才邮箱选择弹窗（不关闭开发者选择弹窗）
+    YunggEmailSelectDialog(
+        show = showYunggEmailDialog,
+        onDismiss = { showYunggEmailDialog = false }
     )
 
     // 人机验证弹窗（验证通过后发起真正的登录请求）
