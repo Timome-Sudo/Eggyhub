@@ -19,10 +19,6 @@ jobs:
     permissions:
       contents: write
     steps:
-      # 设置系统时区为中国北京时间 UTC+8
-      - name: 设置时区为北京时间 Asia/Shanghai (UTC+8)
-        run: timedatectl set-timezone Asia/Shanghai
-
       - name: 拉取源码
         uses: actions/checkout@v5
         with:
@@ -30,13 +26,24 @@ jobs:
           persist-credentials: true
           show-progress: true
 
-      - name: 生成Tag、Beta标题、发布免责正文
+      - name: 获取发布时间与时区信息
         run: |
-          NOW=$(date +'%Y.%m.%d.%H.%M.%S')
-          echo "TAG_NAME=prerelease-$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_ENV
-          echo "RELEASE_TITLE=beta($NOW 北京时间UTC+8)" >> $GITHUB_ENV
-          # 单行转义换行，规避YAML多行引号语法错误
-          echo 'RELEASE_BODY=⚠️免责声明⚠️\n1. 🧪本Beta安装包为CI自动编译生成的未签名测试版本，仅供尝鲜体验，请勿用于正式日常使用；\n2. 📱安装、运行本程序所造成的设备卡顿、数据丢失、系统异常等一切问题，开发者不承担任何赔偿与修复责任；\n3. 🛡️本程序无官方数字签名，可能存在漏洞，请自行斟酌是否安装；\n4. 💡若使用中出现故障、闪退、功能异常，可反馈Issues，但不承诺提供修复、技术支援。\n下载即代表你已完整阅读并同意以上全部条款！' >> $GITHUB_ENV
+          if API_DATA=$(curl -fsSL https://worldtimeapi.org/api/timezone/Asia/Shanghai); then
+            ISO_DATETIME=$(echo "$API_DATA" | jq -r '.datetime')
+            NOW=$(date -d "$ISO_DATETIME" +'%Y.%m.%d.%H.%M.%S')
+            TIME_ZONE_LABEL="北京时间 UTC+8"
+            TAG_TIME=$(date -d "$ISO_DATETIME" +'%Y%m%d-%H%M%S')
+          else
+            # 网络接口失败，读取系统本地时区+系统时间
+            SYS_TZ=$(readlink /etc/localtime | sed -e 's/^.*zoneinfo\///')
+            NOW=$(date +'%Y.%m.%d.%H.%M.%S')
+            TIME_ZONE_LABEL="系统时区${SYS_TZ}"
+            TAG_TIME=$(date +'%Y%m%d-%H%M%S')
+          fi
+
+          echo "TAG_NAME=prerelease-${TAG_TIME}" >> $GITHUB_ENV
+          echo "RELEASE_TITLE=beta($NOW ${TIME_ZONE_LABEL})" >> $GITHUB_ENV
+          echo 'RELEASE_BODY=⚠️免责声明⚠️\n1. 🧪本Beta安装包为CI自动编译生成的未签名测试版本，仅供内部尝鲜体验，请勿用于正式日常使用；\n2. 📱安装、运行本程序所造成的设备卡顿、数据丢失、系统异常等一切问题，开发者不承担任何赔偿与修复责任；\n3. 🛡️本程序无官方数字签名，存在安全风险，请自行斟酌是否安装；\n4. ❌因私自篡改安装包、逆向修改源码带来的各类后果，均由使用者本人全部承担；\n5. 💡若使用中出现故障、闪退、功能异常，可反馈Issues，但不承诺提供修复、技术支援。\n下载即代表你已完整阅读并同意以上全部条款！' >> $GITHUB_ENV
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
@@ -96,7 +103,6 @@ jobs:
           echo "===== Release目录文件 ====="
           ls -la ${{ env.APK_DIR }} 2>/dev/null || echo "release目录不存在"
 
-      # 仅编译成功才往下执行
       - name: 校验原生未签名APK存在
         if: env.EXIT_CODE == '0'
         run: |
@@ -107,7 +113,6 @@ jobs:
             exit 1
           fi
 
-      # 在原目录重命名，不复制文件
       - name: 重命名APK为prerelease包
         if: env.EXIT_CODE == '0'
         run: |
@@ -116,7 +121,6 @@ jobs:
           mv "$SRC" "$DST"
           echo "重命名完成：$SRC → $DST"
 
-      # 上传制品备份
       - name: Upload Release Backup APK
         if: env.EXIT_CODE == '0'
         uses: actions/upload-artifact@v5
@@ -125,7 +129,6 @@ jobs:
           path: ${{ env.APK_DIR }}/${{ env.RENAME_APK }}
           retention-days: 14
 
-      # 发布预发行Beta版本
       - name: Publish Prerelease Preview
         if: env.EXIT_CODE == '0'
         uses: softprops/action-gh-release@v2
