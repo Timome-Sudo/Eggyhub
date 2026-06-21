@@ -1,6 +1,11 @@
 name: Android CI
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  ANDROID_HOME: ~/android-sdk
+  APK_DIR: app/build/outputs/apk/release
+  ORIG_APK: app-release-unsigned.apk
+  RENAME_APK: app-prerelease-unsigned.apk
+  TZ: Asia/Shanghai
 
 on:
   push:
@@ -12,22 +17,33 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v5
+      - name: 拉取源码
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
+          persist-credentials: true
+          show-progress: true
 
-      - name: 生成动态版本Tag（prerelease-时间戳）
-        id: create_tag
-        run: echo "TAG_NAME=prerelease-$(date +'%Y%m%d-%H%M')" >> $GITHUB_ENV
+      - name: 获取北京时间并生成发布信息
+        run: |
+          NOW=$(date +'%Y.%m.%d.%H时%M分%S秒')
+          TAG_TIME=$(date +'%Y%m%d-%H%M%S')
+          TIME_ZONE_LABEL="北京时间 UTC+8"
+
+          echo "TAG_NAME=prerelease-${TAG_TIME}" >> $GITHUB_ENV
+          echo "RELEASE_TITLE=beta($NOW ${TIME_ZONE_LABEL})" >> $GITHUB_ENV
+          echo 'RELEASE_BODY=⚠️免责声明⚠️1. 🧪本Beta安装包为CI自动编译生成的未签名测试版本，仅供内部尝鲜体验，请勿用于正式日常使用；2. 📱安装、运行本程序所造成的设备卡顿、数据丢失、系统异常等一切问题，开发者不承担任何赔偿与修复责任；3. 🛡️本程序无官方数字签名，存在安全风险，请自行斟酌是否安装；4. ❌因私自篡改安装包、逆向修改源码带来的各类后果，均由使用者本人全部承担；5. 💡若使用中出现故障、闪退、功能异常，可反馈Issues，但不承诺提供修复、技术支援。下载即代表你已完整阅读并同意以上全部条款！' >> $GITHUB_ENV
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
         with:
           java-version: '17'
           distribution: 'temurin'
+          show-progress: true
 
-      # Gradle 依赖缓存
       - name: Cache Gradle packages
         uses: actions/cache@v5
         with:
@@ -38,38 +54,84 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      # Android SDK 缓存（大幅减少SDK重复下载）
       - name: Cache Android SDK
         uses: actions/cache@v5
         with:
           path: ~/android-sdk
           key: ${{ runner.os }}-android-sdk
 
-      # 自动安装Android SDK
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          show-progress: true
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      # 关键优化：移除build，只clean+打包release，跳过测试
-      - name: Build Release APK（仅打包，跳过测试）
-        run: ./gradlew clean assembleRelease --no-daemon
+      - name: Build Release APK
+        id: gradle_build
+        continue-on-error: true
+        run: |
+          ./gradlew clean assembleRelease --no-daemon --info 2>&1 > build_log.txt
+          echo EXIT_CODE=$? >> $GITHUB_ENV
+
+      - name: 上传完整编译日志
+        uses: actions/upload-artifact@v5
+        with:
+          name: full-build-log
+          path: build_log.txt
+          retention-days: 14
+
+      - name: 打印全部编译日志，输出完整报错
+        run: |
+          echo "===================== 完整编译日志开始 ====================="
+          cat build_log.txt
+          echo "===================== 完整编译日志结束 ====================="
+
+      - name: 全局检索所有APK用于调试
+        run: |
+          echo "===== 项目内全部APK ====="
+          find . -name "*.apk"
+          echo "===== Release目录文件 ====="
+          ls -la ${{ env.APK_DIR }} 2>/dev/null || echo "release目录不存在"
+
+      - name: 校验原生未签名APK存在
+        if: env.EXIT_CODE == '0'
+        run: |
+          SRC=${{ env.APK_DIR }}/${{ env.ORIG_APK }}
+          if [ ! -f "$SRC" ]; then
+            echo "错误：未找到原生包 $SRC"
+            ls ${{ env.APK_DIR }}/*.apk 2>/dev/null
+            exit 1
+          fi
+
+      - name: 重命名APK为prerelease包
+        if: env.EXIT_CODE == '0'
+        run: |
+          SRC=${{ env.APK_DIR }}/${{ env.ORIG_APK }}
+          DST=${{ env.APK_DIR }}/${{ env.RENAME_APK }}
+          mv "$SRC" "$DST"
+          echo "重命名完成：$SRC → $DST"
 
       - name: Upload Release Backup APK
+        if: env.EXIT_CODE == '0'
         uses: actions/upload-artifact@v5
         with:
           name: release-preview-backup-apk
-          path: app/build/outputs/apk/release/app-release.apk
+          path: ${{ env.APK_DIR }}/${{ env.RENAME_APK }}
           retention-days: 14
 
       - name: Publish Prerelease Preview
+        if: env.EXIT_CODE == '0'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.TAG_NAME }}
+          name: ${{ env.RELEASE_TITLE }}
+          body: ${{ env.RELEASE_BODY }}
           draft: false
           prerelease: true
-          generate_release_notes: true
-          files: app/build/outputs/apk/release/app-release.apk
+          generate_release_notes: false
+          files: ${{ env.APK_DIR }}/${{ env.RENAME_APK }}
+          fail_on_unmatched_files: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
