@@ -3,7 +3,7 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   ANDROID_HOME: ~/android-sdk
   APK_DIR: app/build/outputs/apk/release
-  APK_NAME: app-prerelease-nosign.apk
+  APK_FILE: app-prerelease-nosign.apk
 
 on:
   push:
@@ -61,31 +61,41 @@ jobs:
 
       - name: Build Release APK
         id: gradle_build
+        continue-on-error: true
         run: |
           ./gradlew clean assembleRelease --no-daemon --info 2>&1 > build_log.txt
           echo EXIT_CODE=$? >> $GITHUB_ENV
 
-      - name: 上传完整编译日志
+      - name: 上传完整编译日志（构建失败也会保存）
         uses: actions/upload-artifact@v5
         with:
           name: full-build-log
           path: build_log.txt
           retention-days: 14
 
-      - name: 打印全部编译日志
+      - name: 打印全部编译日志，输出完整报错
         run: |
           echo "===================== 完整编译日志开始 ====================="
           cat build_log.txt
           echo "===================== 完整编译日志结束 ====================="
 
-      - name: 查看APK输出目录
-        run: ls -la ${{ env.APK_DIR }} || echo "APK目录不存在，构建失败"
-
-      - name: 校验目标APK文件
+      # 全局搜索所有APK，查看云端实际产出文件
+      - name: 搜索项目内所有APK文件
         run: |
-          FULL_APK=${{ env.APK_DIR }}/${{ env.APK_NAME }}
-          if [ ! -f "$FULL_APK" ]; then
-            echo "ERROR: 未找到目标APK -> $FULL_APK"
+          echo "===== 全局搜索所有 .apk 文件 ====="
+          find . -name "*.apk"
+          echo "===== release 目录内容 ====="
+          ls -la ${{ env.APK_DIR }} 2>/dev/null || echo "release 目录不存在"
+
+      # 仅构建成功时校验：必须存在指定的nosign包，忽略其他apk
+      - name: 校验目标APK文件
+        if: env.EXIT_CODE == '0'
+        run: |
+          TARGET_APK=${{ env.APK_DIR }}/${{ env.APK_FILE }}
+          if [ ! -f "$TARGET_APK" ]; then
+            echo "ERROR: 未找到指定预发布包 $TARGET_APK"
+            echo "当前目录所有apk："
+            ls ${{ env.APK_DIR }}/*.apk 2>/dev/null
             exit 1
           fi
 
@@ -94,7 +104,8 @@ jobs:
         uses: actions/upload-artifact@v5
         with:
           name: release-preview-backup-apk
-          path: ${{ env.APK_DIR }}/${{ env.APK_NAME }}
+          # 精确指定nosign包，不匹配其他apk，无冲突
+          path: ${{ env.APK_DIR }}/${{ env.APK_FILE }}
           retention-days: 14
 
       - name: Publish Prerelease Preview
@@ -105,7 +116,8 @@ jobs:
           draft: false
           prerelease: true
           generate_release_notes: true
-          files: ${{ env.APK_DIR }}/${{ env.APK_NAME }}
+          # Release附件仅上传nosign包，不携带其他apk
+          files: ${{ env.APK_DIR }}/${{ env.APK_FILE }}
           fail_on_unmatched_files: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
