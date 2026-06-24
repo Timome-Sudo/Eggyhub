@@ -132,9 +132,8 @@ fun EggyhubApp(
                 onLogout = {
                     coroutineScope.launch {
                         authManager.logout()
+                        currentScreen = AppScreen.LOGIN
                     }
-                    // 立即切换回登录页
-                    currentScreen = AppScreen.LOGIN
                 }
             )
         }

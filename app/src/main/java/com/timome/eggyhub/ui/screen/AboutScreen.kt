@@ -4,10 +4,18 @@ import android.content.Context
 import android.graphics.drawable.AdaptiveIconDrawable
 import android.os.Build
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.PressInteraction
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.draw.rotate
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -78,6 +86,17 @@ fun AboutScreen(
 
     // 制作者卡片展开状态
     var isAuthorsExpanded by remember { mutableStateOf(false) }
+    // 着重感谢卡片展开状态
+    var isThanksExpanded by remember { mutableStateOf(true) }
+    // 滚动状态
+    val scrollState = rememberScrollState()
+    val coroutineScope = rememberCoroutineScope()
+
+    // 默认展开着重感谢卡片并滑动到最底部
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(100)
+        scrollState.animateScrollTo(scrollState.maxValue)
+    }
 
     Scaffold(
         topBar = {
@@ -110,7 +129,7 @@ fun AboutScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
+                        .verticalScroll(scrollState)
                         .padding(16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -240,22 +259,22 @@ fun AboutScreen(
                         }
                     }
 
-                    // ========== 制作者卡片（点击展开） ==========
+                    // ========== 制作者卡片 ==========
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.secondaryContainer
-                        )
+                        ),
+                        onClick = {
+                            isAuthorsExpanded = !isAuthorsExpanded
+                        }
                     ) {
                         Column {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 20.dp, vertical = 16.dp)
-                                    .clickable {
-                                        isAuthorsExpanded = !isAuthorsExpanded
-                                    },
+                                    .padding(horizontal = 20.dp, vertical = 16.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
@@ -265,20 +284,29 @@ fun AboutScreen(
                                         fontWeight = FontWeight.SemiBold,
                                         color = MaterialTheme.colorScheme.onSecondaryContainer
                                     )
-                                    Text(
-                                        text = "点击查看详情",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                        fontSize = 12.sp
-                                    )
+                                    if (!isAuthorsExpanded) {
+                                        Text(
+                                            text = "点击查看详情",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                            fontSize = 12.sp
+                                        )
+                                    }
                                 }
 
                                 Spacer(modifier = Modifier.width(8.dp))
 
+                                val arrowRotation by animateFloatAsState(
+                                    targetValue = if (isAuthorsExpanded) 180f else 0f,
+                                    animationSpec = tween(durationMillis = 300),
+                                    label = "arrowRotation"
+                                )
+
                                 Icon(
-                                    imageVector = if (isAuthorsExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                    imageVector = Icons.Default.KeyboardArrowDown,
                                     contentDescription = if (isAuthorsExpanded) "收起" else "展开",
-                                    tint = MaterialTheme.colorScheme.onSecondaryContainer
+                                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    modifier = Modifier.rotate(arrowRotation)
                                 )
                             }
 
@@ -325,7 +353,82 @@ fun AboutScreen(
                                                 )
                                             }
                                         }
+                                    }
+                                } else {
+                                    Box(modifier = Modifier.size(0.dp))
+                                }
+                            }
+                        }
+                    }
 
+                    // ========== 着重感谢卡片 ==========
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.tertiaryContainer
+                        ),
+                        onClick = {
+                            isThanksExpanded = !isThanksExpanded
+                        }
+                    ) {
+                        Column {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "着重感谢",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onTertiaryContainer
+                                    )
+                                    if (!isThanksExpanded) {
+                                        Text(
+                                            text = "点击查看详情",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                            fontSize = 12.sp
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.width(8.dp))
+
+                                val thanksArrowRotation by animateFloatAsState(
+                                    targetValue = if (isThanksExpanded) 180f else 0f,
+                                    animationSpec = tween(durationMillis = 300),
+                                    label = "thanksArrowRotation"
+                                )
+
+                                Icon(
+                                    imageVector = Icons.Default.KeyboardArrowDown,
+                                    contentDescription = if (isThanksExpanded) "收起" else "展开",
+                                    tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                                    modifier = Modifier.rotate(thanksArrowRotation)
+                                )
+                            }
+
+                            // 展开内容
+                            AnimatedContent(
+                                targetState = isThanksExpanded,
+                                transitionSpec = {
+                                    fadeIn(animationSpec = tween(durationMillis = 300)) togetherWith
+                                        fadeOut(animationSpec = tween(durationMillis = 200))
+                                },
+                                label = "thanksContent"
+                            ) { expanded ->
+                                if (expanded) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp)
+                                            .padding(bottom = 16.dp),
+                                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
                                         // 云云鬼才
                                         Card(
                                             modifier = Modifier.fillMaxWidth(),

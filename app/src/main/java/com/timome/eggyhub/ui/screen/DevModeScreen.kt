@@ -33,9 +33,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.rememberCoroutineScope
 import com.timome.eggyhub.data.CaptchaManager
 import com.timome.eggyhub.ui.component.CaptchaDialog
 import com.timome.eggyhub.ui.component.LoadingDialog
+import com.timome.eggyhub.ui.component.ExportLogcatWarningDialog
+import com.timome.eggyhub.ui.component.ExportLogcatProgressDialog
+import com.timome.eggyhub.ui.component.DataCollectionDialog
+import com.timome.eggyhub.util.LogcatExportUtil
+import com.timome.eggyhub.ui.component.DataCollectionConfig
+import kotlinx.coroutines.launch
 
 /**
  * 开发者模式页面
@@ -50,11 +58,19 @@ fun DevModeScreen(
     onEnabledChange: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+
     // 开发者选项开关状态
     var devOptionsEnabled by remember { mutableStateOf(initialEnabled) }
 
     // 等待进度条弹窗显示状态
     var showLoadingDialog by remember { mutableStateOf(false) }
+
+    // ==================== 导出logcat ====================
+    var showExportWarningDialog by remember { mutableStateOf(false) }
+    var showExportProgressDialog by remember { mutableStateOf(false) }
+    var showDataCollectionDialog by remember { mutableStateOf(false) }
 
     // ==================== 人机验证测试 ====================
     // 类型选择弹窗显示状态
@@ -242,6 +258,51 @@ fun DevModeScreen(
                     }
                 }
             }
+
+            // 导出logcat按钮
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "导出logcat",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = "导出应用日志用于调试",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 12.sp
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    Button(
+                        onClick = { showExportWarningDialog = true },
+                        enabled = devOptionsEnabled,
+                        modifier = Modifier.height(40.dp),
+                        colors = ButtonDefaults.buttonColors()
+                    ) {
+                        Text(
+                            text = "导出",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
         }
 
         // ========== 等待进度条弹窗（开发者测试模式） ==========
@@ -251,6 +312,79 @@ fun DevModeScreen(
             autoDismiss = false,
             showCloseButton = true,
             onDismiss = { showLoadingDialog = false }
+        )
+
+        // ========== 导出logcat警告弹窗 ==========
+        ExportLogcatWarningDialog(
+            show = showExportWarningDialog,
+            onConfirm = {
+                showExportWarningDialog = false
+                showDataCollectionDialog = true
+            },
+            onDismiss = {
+                showExportWarningDialog = false
+            }
+        )
+
+        // ========== 数据收集选择弹窗 ==========
+        DataCollectionDialog(
+            show = showDataCollectionDialog,
+            onExport = { config ->
+                showDataCollectionDialog = false
+                showExportProgressDialog = true
+
+                // 在协程中执行导出操作
+                coroutineScope.launch {
+                    try {
+                        // 检查权限
+                        if (!LogcatExportUtil.hasWriteStoragePermission(context)) {
+                            android.widget.Toast.makeText(
+                                context,
+                                "需要存储权限才能导出日志",
+                                android.widget.Toast.LENGTH_SHORT
+                            ).show()
+                            showExportProgressDialog = false
+                            return@launch
+                        }
+
+                        // 导出日志
+                        val logFile = LogcatExportUtil.exportLogToFile(context, config)
+
+                        if (logFile != null) {
+                            android.widget.Toast.makeText(
+                                context,
+                                "日志已导出到: ${logFile.absolutePath}",
+                                android.widget.Toast.LENGTH_LONG
+                            ).show()
+                        } else {
+                            android.widget.Toast.makeText(
+                                context,
+                                "日志导出失败",
+                                android.widget.Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    } catch (e: Exception) {
+                        android.widget.Toast.makeText(
+                            context,
+                            "日志导出失败: ${e.message}",
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                    } finally {
+                        showExportProgressDialog = false
+                    }
+                }
+            },
+            onDismiss = {
+                showDataCollectionDialog = false
+            }
+        )
+
+        // ========== 导出logcat进度弹窗 ==========
+        ExportLogcatProgressDialog(
+            show = showExportProgressDialog,
+            onDismiss = {
+                showExportProgressDialog = false
+            }
         )
 
         // ========== 人机验证类型选择弹窗（开发者测试模式） ==========

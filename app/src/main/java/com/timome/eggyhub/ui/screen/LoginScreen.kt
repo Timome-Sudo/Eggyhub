@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
@@ -35,13 +37,15 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.timome.eggyhub.ui.component.CaptchaDialog
-import com.timome.eggyhub.ui.component.ContactAuthorDialog
-import com.timome.eggyhub.ui.component.DeveloperSelectDialog
 import com.timome.eggyhub.ui.component.LoadingDialog
 import com.timome.eggyhub.ui.component.LoginErrorDialog
 import com.timome.eggyhub.ui.component.PasswordErrorDialog
-import com.timome.eggyhub.ui.component.YunggEmailSelectDialog
+import com.timome.eggyhub.ui.component.ExportLogcatWarningDialog
+import com.timome.eggyhub.ui.component.ExportLogcatProgressDialog
+import com.timome.eggyhub.ui.component.DataCollectionDialog
 import com.timome.eggyhub.data.ApiService
+import com.timome.eggyhub.util.LogcatExportUtil
+import com.timome.eggyhub.ui.component.DataCollectionConfig
 import kotlinx.coroutines.launch
 import okhttp3.Call
 
@@ -113,10 +117,10 @@ fun LoginScreen(
     var showLoginErrorDialog by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
 
-    // 联系作者相关弹窗状态
-    var showContactAuthorDialog by remember { mutableStateOf(false) }
-    var showDeveloperSelectDialog by remember { mutableStateOf(false) }
-    var showYunggEmailDialog by remember { mutableStateOf(false) }
+    // 导出logcat相关状态
+    var showExportWarningDialog by remember { mutableStateOf(false) }
+    var showExportProgressDialog by remember { mutableStateOf(false) }
+    var showDataCollectionDialog by remember { mutableStateOf(false) }
 
     // 人机验证弹窗状态
     var showCaptchaDialog by remember { mutableStateOf(false) }
@@ -146,6 +150,9 @@ fun LoginScreen(
         }
         if (passwordInput.isBlank()) {
             passwordError = "未填写密码"
+            valid = false
+        } else if (passwordInput.length < 6) {
+            passwordError = "密码至少填写6位数"
             valid = false
         } else {
             passwordError = null
@@ -258,13 +265,16 @@ fun LoginScreen(
         )
     }
 
+    val scrollState = rememberScrollState()
+
     Surface(
         modifier = Modifier.fillMaxSize()
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(24.dp),
+                .padding(24.dp)
+                .verticalScroll(scrollState),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
@@ -370,8 +380,7 @@ fun LoginScreen(
             Button(
                 onClick = { doLogin() },
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
+                    .fillMaxWidth(),
                 enabled = !isLoading,
                 shape = RoundedCornerShape(12.dp)
             ) {
@@ -388,8 +397,7 @@ fun LoginScreen(
             OutlinedButton(
                 onClick = { onRegisterClick() },
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
+                    .fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Text(
@@ -406,8 +414,7 @@ fun LoginScreen(
             OutlinedButton(
                 onClick = { onForgotPasswordClick() },
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
+                    .fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Text(
@@ -454,51 +461,87 @@ fun LoginScreen(
         onConfirm = {
             showLoginErrorDialog = false
         },
-        onContactClick = {
-            // 关闭错误弹窗，打开联系作者选择弹窗
-            showLoginErrorDialog = false
-            showContactAuthorDialog = true
-        },
         onDismiss = {
             showLoginErrorDialog = false
+        },
+        onExportLogcat = {
+            showExportWarningDialog = true
         }
     )
 
-    // 联系作者选择弹窗
-    ContactAuthorDialog(
-        show = showContactAuthorDialog,
-        onBack = {
-            // 返回上一个弹窗：LoginErrorDialog
-            showContactAuthorDialog = false
-            showLoginErrorDialog = true
+    // 导出logcat警告弹窗
+    ExportLogcatWarningDialog(
+        show = showExportWarningDialog,
+        onConfirm = {
+            showExportWarningDialog = false
+            showDataCollectionDialog = true
         },
-        onDismiss = { showContactAuthorDialog = false },
-        onEmailClick = {
-            // 关闭联系作者弹窗，打开开发者选择弹窗
-            showContactAuthorDialog = false
-            showDeveloperSelectDialog = true
+        onDismiss = {
+            showExportWarningDialog = false
         }
     )
 
-    // 开发者选择弹窗
-    DeveloperSelectDialog(
-        show = showDeveloperSelectDialog,
-        onBack = {
-            // 返回上一个弹窗：ContactAuthorDialog
-            showDeveloperSelectDialog = false
-            showContactAuthorDialog = true
+    // 数据收集选择弹窗
+    DataCollectionDialog(
+        show = showDataCollectionDialog,
+        onExport = { config ->
+            showDataCollectionDialog = false
+            showExportProgressDialog = true
+
+            // 在协程中执行导出操作
+            coroutineScope.launch {
+                try {
+                    // 检查权限
+                    if (!LogcatExportUtil.hasWriteStoragePermission(context)) {
+                        // 如果没有权限，需要请求权限
+                        // 这里简化处理，直接显示提示
+                        android.widget.Toast.makeText(
+                            context,
+                            "需要存储权限才能导出日志",
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                        showExportProgressDialog = false
+                        return@launch
+                    }
+
+                    // 导出日志
+                    val logFile = LogcatExportUtil.exportLogToFile(context, config)
+
+                    if (logFile != null) {
+                        android.widget.Toast.makeText(
+                            context,
+                            "日志已导出到: ${logFile.absolutePath}",
+                            android.widget.Toast.LENGTH_LONG
+                        ).show()
+                    } else {
+                        android.widget.Toast.makeText(
+                            context,
+                            "日志导出失败",
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                } catch (e: Exception) {
+                    android.widget.Toast.makeText(
+                        context,
+                        "日志导出失败: ${e.message}",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                } finally {
+                    showExportProgressDialog = false
+                }
+            }
         },
-        onYunggClick = {
-            // 云云鬼才点击后：弹出邮箱选择弹窗（不关闭当前弹窗）
-            showYunggEmailDialog = true
-        },
-        onDismiss = { showDeveloperSelectDialog = false }
+        onDismiss = {
+            showDataCollectionDialog = false
+        }
     )
 
-    // 云云鬼才邮箱选择弹窗（不关闭开发者选择弹窗）
-    YunggEmailSelectDialog(
-        show = showYunggEmailDialog,
-        onDismiss = { showYunggEmailDialog = false }
+    // 导出logcat进度弹窗
+    ExportLogcatProgressDialog(
+        show = showExportProgressDialog,
+        onDismiss = {
+            showExportProgressDialog = false
+        }
     )
 
     // 人机验证弹窗（验证通过后发起真正的登录请求）

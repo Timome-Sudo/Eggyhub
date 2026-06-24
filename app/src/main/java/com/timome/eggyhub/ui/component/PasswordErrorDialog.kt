@@ -8,7 +8,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
@@ -40,6 +42,8 @@ fun PasswordErrorDialog(
 ) {
     if (!show) return
 
+    val scrollState = rememberScrollState()
+
     Dialog(onDismissRequest = { onDismiss() }) {
         Card(
             shape = RoundedCornerShape(16.dp),
@@ -50,7 +54,8 @@ fun PasswordErrorDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(24.dp),
+                    .padding(24.dp)
+                    .verticalScroll(scrollState),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
@@ -77,8 +82,7 @@ fun PasswordErrorDialog(
                     OutlinedButton(
                         onClick = { onConfirm() },
                         modifier = Modifier
-                            .weight(1f)
-                            .height(48.dp),
+                            .weight(1f),
                         shape = RoundedCornerShape(10.dp)
                     ) {
                         Text(
@@ -93,8 +97,7 @@ fun PasswordErrorDialog(
                     Button(
                         onClick = { onForgotPassword() },
                         modifier = Modifier
-                            .weight(1f)
-                            .height(48.dp),
+                            .weight(1f),
                         shape = RoundedCornerShape(10.dp)
                     ) {
                         Text(

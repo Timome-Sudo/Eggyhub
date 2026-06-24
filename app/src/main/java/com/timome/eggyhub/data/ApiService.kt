@@ -95,7 +95,8 @@ object ApiService {
         val username: String,
         val email: String,
         val role: String,
-        val sponser: String
+        val sponser: String,
+        val isActive: Int = 1
     )
 
     /**
@@ -181,14 +182,19 @@ object ApiService {
                             // 登录成功
                             val accessToken = json.optString("access_token", "")
                             val userObj = json.optJSONObject("user")
-                            val user = LoginUser(
-                                id = userObj?.optInt("id", -1) ?: -1,
-                                username = userObj?.optString("username", "") ?: "",
-                                email = userObj?.optString("email", "") ?: "",
-                                role = userObj?.optString("role", "") ?: "",
-                                sponser = userObj?.optString("sponser", "0") ?: "0"
-                            )
-                            onSuccess(LoginResponse(accessToken, user))
+                            try {
+                                val user = LoginUser(
+                                    id = userObj?.optInt("id", -1) ?: -1,
+                                    username = userObj?.optString("username", "") ?: "",
+                                    email = userObj?.optString("email", "") ?: "",
+                                    role = userObj?.optString("role", "") ?: "",
+                                    sponser = userObj?.optString("sponser", "0") ?: "0",
+                                    isActive = userObj?.optInt("is_active", 1) ?: 1
+                                )
+                                onSuccess(LoginResponse(accessToken, user))
+                            } catch (e: Exception) {
+                                onFailure("用户数据解析失败: ${e.message}")
+                            }
                         } else {
                             // 登录失败，但响应有 message
                             val message = json.optString("message", "")
