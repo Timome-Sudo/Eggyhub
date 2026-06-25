@@ -1,6 +1,7 @@
 package com.timome.eggyhub.data
 
 import android.content.Context
+import android.util.Base64
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
@@ -82,6 +83,25 @@ class AuthManager(context: Context) {
     val eggyid: Flow<String> = dataStore.data
         .map { preferences -> preferences[EGGYID] ?: "" }
 
+    /** 密码（解密后） */
+    val password: Flow<String> = dataStore.data
+        .map { preferences ->
+            val encrypted = preferences[PASSWORD] ?: ""
+            decryptPassword(encrypted)
+        }
+
+    private fun encryptPassword(password: String): String {
+        return Base64.encodeToString(password.toByteArray(), Base64.DEFAULT)
+    }
+
+    private fun decryptPassword(encrypted: String): String {
+        return if (encrypted.isNotBlank()) {
+            String(Base64.decode(encrypted, Base64.DEFAULT))
+        } else {
+            ""
+        }
+    }
+
     /** 登录成功时保存所有相关信息 */
     suspend fun loginWithUser(
         email: String,
@@ -99,7 +119,7 @@ class AuthManager(context: Context) {
         dataStore.edit { preferences ->
             preferences[IS_LOGGED_IN] = true
             preferences[EMAIL] = email
-            preferences[PASSWORD] = password
+            preferences[PASSWORD] = encryptPassword(password)
             preferences[ACCESS_TOKEN] = accessToken
             preferences[USERNAME] = username
             preferences[USER_ID] = userId.toString()

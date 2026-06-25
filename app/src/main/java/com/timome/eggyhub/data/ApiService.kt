@@ -72,6 +72,10 @@ object ApiService {
     private const val REGISTER_URL = "$BASE_URL/auth/register"
     private const val FORGOT_PASSWORD_URL = "$BASE_URL/password/forgot"
     private const val PROFILE_URL = "$BASE_URL/users/profile"
+    private const val CHANGE_PASSWORD_URL = "$BASE_URL/reset_pswd"
+    private const val UPDATE_PROFILE_URL = "$BASE_URL/users/update_profile"
+    private const val CHANGE_USERNAME_URL = "$BASE_URL/reset_name"
+    private const val DELETE_ACCOUNT_URL = "$BASE_URL/account/delete"
     private const val TIMEOUT_SECONDS = 30
 
     private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
@@ -391,6 +395,183 @@ object ApiService {
                     }
                 } catch (e: Exception) {
                     onFailure("响应解析失败: $responseBody")
+                }
+            }
+        })
+
+        return call
+    }
+
+    /**
+     * 修改密码接口
+     */
+    fun changePassword(
+        accessToken: String,
+        oldPassword: String,
+        newPassword: String,
+        onSuccess: () -> Unit,
+        onFailure: (String) -> Unit
+    ): Call {
+        val jsonBody = JSONObject()
+        jsonBody.put("old_password", oldPassword)
+        jsonBody.put("new_password", newPassword)
+
+        val body = jsonBody.toString().toRequestBody(JSON_MEDIA_TYPE)
+        val request = Request.Builder()
+            .url(CHANGE_PASSWORD_URL)
+            .addHeader("Authorization", "Bearer $accessToken")
+            .post(body)
+            .build()
+
+        val call = httpClient.newCall(request)
+        call.enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                onFailure(e.message ?: "网络请求失败")
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                val responseBody = response.body?.string() ?: ""
+                if (response.isSuccessful) {
+                    try {
+                        val json = JSONObject(responseBody)
+                        val message = json.optString("message", "")
+                        if ("Password updated successfully" == message) {
+                            onSuccess()
+                        } else {
+                            onFailure(message.ifEmpty { "修改密码失败" })
+                        }
+                    } catch (e: Exception) {
+                        onSuccess()
+                    }
+                } else {
+                    onFailure("密码错误或请求失败")
+                }
+            }
+        })
+
+        return call
+    }
+
+    /**
+     * 更新用户资料接口（POST）
+     */
+    fun updateUserProfile(
+        accessToken: String,
+        eggyid: String?,
+        description: String?,
+        contact: String?,
+        onSuccess: () -> Unit,
+        onFailure: (String) -> Unit
+    ): Call {
+        val jsonBody = JSONObject()
+        eggyid?.let { jsonBody.put("eggyid", it) }
+        description?.let { jsonBody.put("description", it) }
+        contact?.let { jsonBody.put("contact", it) }
+
+        val body = jsonBody.toString().toRequestBody(JSON_MEDIA_TYPE)
+        val request = Request.Builder()
+            .url(UPDATE_PROFILE_URL)
+            .addHeader("Authorization", "Bearer $accessToken")
+            .post(body)
+            .build()
+
+        val call = httpClient.newCall(request)
+        call.enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                onFailure(e.message ?: "网络请求失败")
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                val responseBody = response.body?.string() ?: ""
+                if (response.isSuccessful) {
+                    onSuccess()
+                } else {
+                    onFailure("请求失败: ${response.code}")
+                }
+            }
+        })
+
+        return call
+    }
+
+    /**
+     * 修改用户名接口
+     */
+    fun changeUsername(
+        accessToken: String,
+        newUsername: String,
+        onSuccess: () -> Unit,
+        onFailure: (String) -> Unit
+    ): Call {
+        val jsonBody = JSONObject()
+        jsonBody.put("new_name", newUsername)
+
+        val body = jsonBody.toString().toRequestBody(JSON_MEDIA_TYPE)
+        val request = Request.Builder()
+            .url(CHANGE_USERNAME_URL)
+            .addHeader("Authorization", "Bearer $accessToken")
+            .post(body)
+            .build()
+
+        val call = httpClient.newCall(request)
+        call.enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                onFailure(e.message ?: "网络请求失败")
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                val responseBody = response.body?.string() ?: ""
+                if (response.isSuccessful) {
+                    try {
+                        val json = JSONObject(responseBody)
+                        val updatedName = json.optString("new_username", "")
+                        if (updatedName.isNotEmpty() && newUsername == updatedName) {
+                            onSuccess()
+                        } else {
+                            onFailure("修改失败")
+                        }
+                    } catch (e: Exception) {
+                        onSuccess()
+                    }
+                } else {
+                    onFailure("请求失败: ${response.code}")
+                }
+            }
+        })
+
+        return call
+    }
+
+    /**
+     * 删除账户接口
+     */
+    fun deleteAccount(
+        accessToken: String,
+        password: String,
+        onSuccess: () -> Unit,
+        onFailure: (String) -> Unit
+    ): Call {
+        val jsonBody = JSONObject()
+        jsonBody.put("password", password)
+
+        val body = jsonBody.toString().toRequestBody(JSON_MEDIA_TYPE)
+        val request = Request.Builder()
+            .url(DELETE_ACCOUNT_URL)
+            .addHeader("Authorization", "Bearer $accessToken")
+            .post(body)
+            .build()
+
+        val call = httpClient.newCall(request)
+        call.enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                onFailure(e.message ?: "网络请求失败")
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                if (response.isSuccessful) {
+                    onSuccess()
+                } else {
+                    onFailure("密码错误或请求失败")
                 }
             }
         })

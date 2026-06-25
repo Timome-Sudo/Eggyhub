@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -65,7 +66,7 @@ fun StepProgressBar(
             }
         }
 
-        // 已完成的连接线（带渐变动画）
+        // 已完成的连接线（从左到右动画）
         if (currentStep > 1) {
             Row(
                 modifier = Modifier
@@ -76,21 +77,26 @@ fun StepProgressBar(
             ) {
                 for (i in 1 until totalSteps) {
                     val shouldHighlight = i < currentStep
-                    val lineColor by animateColorAsState(
-                        targetValue = if (shouldHighlight)
-                            MaterialTheme.colorScheme.primary
-                        else
-                            Color.Transparent,
-                        animationSpec = tween(durationMillis = 500),
-                        label = "lineColor_$i"
+                    val lineProgress by animateFloatAsState(
+                        targetValue = if (shouldHighlight) 1f else 0f,
+                        animationSpec = tween(durationMillis = 500, delayMillis = (i - 1) * 100),
+                        label = "lineProgress_$i"
                     )
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .height(3.dp)
                             .clip(CircleShape)
-                            .background(lineColor)
-                    )
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .fillMaxWidth(lineProgress)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primary)
+                        )
+                    }
                 }
             }
         }

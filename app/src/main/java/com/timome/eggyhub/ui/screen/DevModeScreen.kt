@@ -56,6 +56,7 @@ import kotlinx.coroutines.launch
 fun DevModeScreen(
     initialEnabled: Boolean = false,
     onEnabledChange: (Boolean) -> Unit = {},
+    onExportRequested: (DataCollectionConfig, (Boolean) -> Unit) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -71,6 +72,9 @@ fun DevModeScreen(
     var showExportWarningDialog by remember { mutableStateOf(false) }
     var showExportProgressDialog by remember { mutableStateOf(false) }
     var showDataCollectionDialog by remember { mutableStateOf(false) }
+
+    // ==================== 崩溃测试 ====================
+    var showCrashWarningDialog by remember { mutableStateOf(false) }
 
     // ==================== 人机验证测试 ====================
     // 类型选择弹窗显示状态
@@ -229,12 +233,12 @@ fun DevModeScreen(
                 }
             }
 
-            // 预留位置：其他开发者测试按钮（可后续扩展）
+            // 崩溃测试按钮
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    containerColor = MaterialTheme.colorScheme.errorContainer
                 )
             ) {
                 Row(
@@ -245,15 +249,34 @@ fun DevModeScreen(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "其他测试",
+                            text = "崩溃测试",
                             style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.Medium
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onErrorContainer
                         )
                         Text(
-                            text = "保留给后续扩展",
+                            text = "测试崩溃界面，仅供开发者使用",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f),
                             fontSize = 12.sp
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    Button(
+                        onClick = { showCrashWarningDialog = true },
+                        enabled = devOptionsEnabled,
+                        modifier = Modifier.height(40.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = MaterialTheme.colorScheme.onError
+                        )
+                    ) {
+                        Text(
+                            text = "崩溃",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium
                         )
                     }
                 }
@@ -333,44 +356,20 @@ fun DevModeScreen(
                 showDataCollectionDialog = false
                 showExportProgressDialog = true
 
-                // 在协程中执行导出操作
-                coroutineScope.launch {
-                    try {
-                        // 检查权限
-                        if (!LogcatExportUtil.hasWriteStoragePermission(context)) {
-                            android.widget.Toast.makeText(
-                                context,
-                                "需要存储权限才能导出日志",
-                                android.widget.Toast.LENGTH_SHORT
-                            ).show()
-                            showExportProgressDialog = false
-                            return@launch
-                        }
-
-                        // 导出日志
-                        val logFile = LogcatExportUtil.exportLogToFile(context, config)
-
-                        if (logFile != null) {
-                            android.widget.Toast.makeText(
-                                context,
-                                "日志已导出到: ${logFile.absolutePath}",
-                                android.widget.Toast.LENGTH_LONG
-                            ).show()
-                        } else {
-                            android.widget.Toast.makeText(
-                                context,
-                                "日志导出失败",
-                                android.widget.Toast.LENGTH_SHORT
-                            ).show()
-                        }
-                    } catch (e: Exception) {
+                onExportRequested(config) { success ->
+                    showExportProgressDialog = false
+                    if (success) {
                         android.widget.Toast.makeText(
                             context,
-                            "日志导出失败: ${e.message}",
+                            "日志导出成功",
                             android.widget.Toast.LENGTH_SHORT
                         ).show()
-                    } finally {
-                        showExportProgressDialog = false
+                    } else {
+                        android.widget.Toast.makeText(
+                            context,
+                            "日志导出失败",
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
                     }
                 }
             },
@@ -497,6 +496,86 @@ fun DevModeScreen(
             onCancel = { showCaptchaTestDialog = false },
             forcedType = selectedCaptchaType
         )
+
+        // ========== 崩溃测试警告弹窗 ==========
+        if (showCrashWarningDialog) {
+            Dialog(
+                onDismissRequest = { showCrashWarningDialog = false },
+                properties = DialogProperties(
+                    dismissOnBackPress = true,
+                    dismissOnClickOutside = true,
+                    usePlatformDefaultWidth = false
+                )
+            ) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth(0.9f),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Text(
+                            text = "警告",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+
+                        Text(
+                            text = "点击应用会崩溃，仅供开发者测试崩溃界面，正常用户不要点！",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            TextButton(
+                                onClick = { showCrashWarningDialog = false },
+                                modifier = Modifier.width(100.dp)
+                            ) {
+                                Text(
+                                    text = "取消",
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(12.dp))
+
+                            Button(
+                                onClick = {
+                                    showCrashWarningDialog = false
+                                    throw RuntimeException("Developer crash test")
+                                },
+                                modifier = Modifier.width(140.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.error,
+                                    contentColor = MaterialTheme.colorScheme.onError
+                                )
+                            ) {
+                                Text(
+                                    text = "无视风险，继续执行",
+                                    fontWeight = FontWeight.Medium,
+                                    fontSize = 14.sp
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

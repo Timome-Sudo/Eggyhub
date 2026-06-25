@@ -39,10 +39,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import android.widget.Toast
 import com.timome.eggyhub.ui.component.BottomNavBar
 import com.timome.eggyhub.ui.component.BottomNavItem
 import com.timome.eggyhub.ui.component.CircleRevealOverlay
+import com.timome.eggyhub.ui.component.DataCollectionConfig
+import com.timome.eggyhub.ui.component.ChangeInfoDialog
+import com.timome.eggyhub.ui.component.ChangeUsernameDialog
 import kotlin.math.abs
 import kotlinx.coroutines.launch
 
@@ -58,7 +63,11 @@ fun HomeScreen(
     sponser: String,
     eggyid: String,
     contact: String,
-    onLogout: suspend () -> Unit
+    accessToken: String,
+    password: String,
+    isGuestMode: Boolean,
+    onLogout: suspend () -> Unit,
+    onExportRequested: (DataCollectionConfig, (Boolean) -> Unit) -> Unit = { _, _ -> }
 ) {
     val itemOrder = remember {
         listOf(
@@ -81,6 +90,16 @@ fun HomeScreen(
     var devOptionsEnabled by remember { mutableStateOf(false) }
     // 关于应用页面显示状态
     var showAbout by remember { mutableStateOf(false) }
+    // 账户设置页面显示状态
+    var showAccountSettings by remember { mutableStateOf(false) }
+    // 更改密码页面显示状态
+    var showChangePassword by remember { mutableStateOf(false) }
+    // 更改详细信息弹窗显示状态
+    var showChangeInfo by remember { mutableStateOf(false) }
+    // 更改用户名弹窗显示状态
+    var showChangeUsername by remember { mutableStateOf(false) }
+
+    val context = LocalContext.current
 
     // ========== 圆形扩散动画状态 ==========
     var revealVisible by remember { mutableStateOf(false) }
@@ -144,10 +163,40 @@ fun HomeScreen(
                 ) {
                     DevModeScreen(
                         initialEnabled = devOptionsEnabled,
-                        onEnabledChange = { devOptionsEnabled = it }
+                        onEnabledChange = { devOptionsEnabled = it },
+                        onExportRequested = onExportRequested
                     )
                 }
             }
+        )
+        return
+    }
+
+    // 更改密码页面
+    if (showChangePassword) {
+        ChangePasswordScreen(
+            onBack = { showChangePassword = false },
+            onSuccess = {
+                showChangePassword = false
+                Toast.makeText(context, "密码修改成功", Toast.LENGTH_SHORT).show()
+            },
+            accessToken = accessToken,
+            oldPassword = password,
+            isGuestMode = isGuestMode
+        )
+        return
+    }
+
+    // 账户设置页面
+    if (showAccountSettings) {
+        AccountSettingsScreen(
+            onBack = { showAccountSettings = false },
+            onChangePassword = { showChangePassword = true },
+            onDeleteAccount = {
+                Toast.makeText(context, "注销账户功能开发中", Toast.LENGTH_SHORT).show()
+            },
+            onChangeInfo = { showChangeInfo = true },
+            onChangeUsername = { showChangeUsername = true }
         )
         return
     }
@@ -256,7 +305,8 @@ fun HomeScreen(
                                     onLogout()
                                 }
                             },
-                            onAboutClick = { showAbout = true }
+                            onAboutClick = { showAbout = true },
+                            onAccountSettingsClick = { showAccountSettings = true }
                         )
                     }
                 }
@@ -301,4 +351,32 @@ fun HomeScreen(
                 .padding(bottom = 80.dp)
         )
     }
+
+    // 更改详细信息弹窗
+    ChangeInfoDialog(
+        show = showChangeInfo,
+        eggyid = eggyid,
+        description = description,
+        contact = contact,
+        onDismiss = { showChangeInfo = false },
+        onSuccess = {
+            showChangeInfo = false
+            Toast.makeText(context, "资料更新成功", Toast.LENGTH_SHORT).show()
+        },
+        isGuestMode = accessToken.isEmpty(),
+        accessToken = accessToken
+    )
+
+    // 更改用户名弹窗
+    ChangeUsernameDialog(
+        show = showChangeUsername,
+        currentUsername = username,
+        onDismiss = { showChangeUsername = false },
+        onSuccess = {
+            showChangeUsername = false
+            Toast.makeText(context, "用户名修改成功", Toast.LENGTH_SHORT).show()
+        },
+        isGuestMode = accessToken.isEmpty(),
+        accessToken = accessToken
+    )
 }

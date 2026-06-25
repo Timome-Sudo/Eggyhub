@@ -80,6 +80,7 @@ fun ProfilePageContent(
     contact: String = "",
     onLogoutClick: () -> Unit,
     onAboutClick: () -> Unit = {},
+    onAccountSettingsClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -288,7 +289,7 @@ fun ProfilePageContent(
         Spacer(modifier = Modifier.height(8.dp))
 
         val settingsItems = listOf(
-            "账户设置" to null,
+            "账户设置" to onAccountSettingsClick,
             "通知设置" to null,
             "隐私设置" to null,
             "帮助与反馈" to null,

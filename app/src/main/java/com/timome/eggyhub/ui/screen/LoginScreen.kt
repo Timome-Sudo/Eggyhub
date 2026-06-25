@@ -98,7 +98,8 @@ fun LoginScreen(
         eggyid: String
     ) -> Unit,
     onRegisterClick: () -> Unit = {},
-    onForgotPasswordClick: () -> Unit = {}
+    onForgotPasswordClick: () -> Unit = {},
+    onExportRequested: (DataCollectionConfig, (Boolean) -> Unit) -> Unit = { _, _ -> }
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -488,46 +489,20 @@ fun LoginScreen(
             showDataCollectionDialog = false
             showExportProgressDialog = true
 
-            // 在协程中执行导出操作
-            coroutineScope.launch {
-                try {
-                    // 检查权限
-                    if (!LogcatExportUtil.hasWriteStoragePermission(context)) {
-                        // 如果没有权限，需要请求权限
-                        // 这里简化处理，直接显示提示
-                        android.widget.Toast.makeText(
-                            context,
-                            "需要存储权限才能导出日志",
-                            android.widget.Toast.LENGTH_SHORT
-                        ).show()
-                        showExportProgressDialog = false
-                        return@launch
-                    }
-
-                    // 导出日志
-                    val logFile = LogcatExportUtil.exportLogToFile(context, config)
-
-                    if (logFile != null) {
-                        android.widget.Toast.makeText(
-                            context,
-                            "日志已导出到: ${logFile.absolutePath}",
-                            android.widget.Toast.LENGTH_LONG
-                        ).show()
-                    } else {
-                        android.widget.Toast.makeText(
-                            context,
-                            "日志导出失败",
-                            android.widget.Toast.LENGTH_SHORT
-                        ).show()
-                    }
-                } catch (e: Exception) {
+            onExportRequested(config) { success ->
+                showExportProgressDialog = false
+                if (success) {
                     android.widget.Toast.makeText(
                         context,
-                        "日志导出失败: ${e.message}",
+                        "日志导出成功",
                         android.widget.Toast.LENGTH_SHORT
                     ).show()
-                } finally {
-                    showExportProgressDialog = false
+                } else {
+                    android.widget.Toast.makeText(
+                        context,
+                        "日志导出失败",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
                 }
             }
         },
