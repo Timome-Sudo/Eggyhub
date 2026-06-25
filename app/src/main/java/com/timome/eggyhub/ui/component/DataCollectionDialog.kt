@@ -473,60 +473,35 @@ private fun DataItemRow(
 }
 
 /**
- * 三态勾选框（Material You 3 风格）
+ * 三态勾选框（使用 M3 原生组件）
  */
 @Composable
 private fun TriStateCheckbox(
     checked: CheckboxState,
     onCheckedChange: (CheckboxState) -> Unit
 ) {
-    val colors = androidx.compose.material3.CheckboxDefaults.colors(
-        checkedColor = MaterialTheme.colorScheme.primary,
-        uncheckedColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        checkmarkColor = MaterialTheme.colorScheme.onPrimary,
-        disabledCheckedColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f),
-        disabledUncheckedColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
-    )
-
-    Box(
-        modifier = Modifier
-            .size(24.dp)
-            .clickable {
-                onCheckedChange(
-                    when (checked) {
-                        CheckboxState.UNCHECKED -> CheckboxState.CHECKED
-                        CheckboxState.PARTIAL -> CheckboxState.CHECKED
-                        CheckboxState.CHECKED -> CheckboxState.UNCHECKED
-                    }
-                )
-            },
-        contentAlignment = Alignment.Center
-    ) {
-        androidx.compose.material3.Checkbox(
-            checked = checked == CheckboxState.CHECKED,
-            onCheckedChange = null,
-            colors = colors,
-            modifier = Modifier.size(24.dp)
+    androidx.compose.material3.TriStateCheckbox(
+        state = when (checked) {
+            CheckboxState.UNCHECKED -> androidx.compose.ui.state.ToggleableState.Off
+            CheckboxState.PARTIAL -> androidx.compose.ui.state.ToggleableState.Indeterminate
+            CheckboxState.CHECKED -> androidx.compose.ui.state.ToggleableState.On
+        },
+        onClick = {
+            onCheckedChange(
+                when (checked) {
+                    CheckboxState.UNCHECKED -> CheckboxState.CHECKED
+                    CheckboxState.PARTIAL -> CheckboxState.CHECKED
+                    CheckboxState.CHECKED -> CheckboxState.UNCHECKED
+                }
+            )
+        },
+        colors = androidx.compose.material3.CheckboxDefaults.colors(
+            checkedColor = MaterialTheme.colorScheme.primary,
+            uncheckedColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            checkmarkColor = MaterialTheme.colorScheme.onPrimary,
+            indeterminateColor = MaterialTheme.colorScheme.primary
         )
-
-        // 部分选中状态（显示减号）
-        if (checked == CheckboxState.PARTIAL) {
-            Box(
-                modifier = Modifier
-                    .size(24.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(MaterialTheme.colorScheme.primary),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "\u2212",
-                    color = MaterialTheme.colorScheme.onPrimary,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        }
-    }
+    )
 }
 
 /**

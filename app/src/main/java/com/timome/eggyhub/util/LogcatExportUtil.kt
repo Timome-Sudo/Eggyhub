@@ -135,52 +135,52 @@ object LogcatExportUtil {
                 if (config.deviceInfo["时间"] == true) {
                     writer.appendLine("时间: ${dateFormat.format(Date())}")
                 } else {
-                    writer.appendLine("时间: 用户未同意收集该信息")
+                    writer.appendLine("时间: 用户未同意收集此信息")
                 }
                 if (config.deviceInfo["设备品牌"] == true) {
                     writer.appendLine("设备品牌: ${Build.BRAND}")
                 } else {
-                    writer.appendLine("设备品牌: 用户未同意收集该信息")
+                    writer.appendLine("设备品牌: 用户未同意收集此信息")
                 }
                 if (config.deviceInfo["设备型号"] == true) {
                     writer.appendLine("设备型号: ${Build.MODEL}")
                 } else {
-                    writer.appendLine("设备型号: 用户未同意收集该信息")
+                    writer.appendLine("设备型号: 用户未同意收集此信息")
                 }
                 if (config.deviceInfo["设备制造商"] == true) {
                     writer.appendLine("设备制造商: ${Build.MANUFACTURER}")
                 } else {
-                    writer.appendLine("设备制造商: 用户未同意收集该信息")
+                    writer.appendLine("设备制造商: 用户未同意收集此信息")
                 }
                 if (config.deviceInfo["系统版本"] == true) {
                     writer.appendLine("系统版本: Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
                 } else {
-                    writer.appendLine("系统版本: 用户未同意收集该信息")
+                    writer.appendLine("系统版本: 用户未同意收集此信息")
                 }
                 if (config.deviceInfo["设备名称"] == true) {
                     writer.appendLine("设备名称: ${Build.DEVICE}")
                 } else {
-                    writer.appendLine("设备名称: 用户未同意收集该信息")
+                    writer.appendLine("设备名称: 用户未同意收集此信息")
                 }
                 if (config.deviceInfo["产品名称"] == true) {
                     writer.appendLine("产品名称: ${Build.PRODUCT}")
                 } else {
-                    writer.appendLine("产品名称: 用户未同意收集该信息")
+                    writer.appendLine("产品名称: 用户未同意收集此信息")
                 }
                 if (config.deviceInfo["硬件名称"] == true) {
                     writer.appendLine("硬件名称: ${Build.HARDWARE}")
                 } else {
-                    writer.appendLine("硬件名称: 用户未同意收集该信息")
+                    writer.appendLine("硬件名称: 用户未同意收集此信息")
                 }
                 if (config.deviceInfo["显示分辨率"] == true) {
                     writer.appendLine("显示分辨率: ${context.resources.displayMetrics.widthPixels}x${context.resources.displayMetrics.heightPixels}")
                 } else {
-                    writer.appendLine("显示分辨率: 用户未同意收集该信息")
+                    writer.appendLine("显示分辨率: 用户未同意收集此信息")
                 }
                 if (config.deviceInfo["屏幕密度"] == true) {
                     writer.appendLine("屏幕密度: ${context.resources.displayMetrics.densityDpi} dpi")
                 } else {
-                    writer.appendLine("屏幕密度: 用户未同意收集该信息")
+                    writer.appendLine("屏幕密度: 用户未同意收集此信息")
                 }
                 writer.appendLine("===============================")
                 writer.appendLine()
@@ -194,42 +194,42 @@ object LogcatExportUtil {
                     if (config.appInfo["应用名称"] == true) {
                         writer.appendLine("应用名称: ${context.packageManager.getApplicationLabel(appInfo)}")
                     } else {
-                        writer.appendLine("应用名称: 用户未同意收集该信息")
+                        writer.appendLine("应用名称: 用户未同意收集此信息")
                     }
                     if (config.appInfo["应用包名"] == true) {
                         writer.appendLine("应用包名: ${context.packageName}")
                     } else {
-                        writer.appendLine("应用包名: 用户未同意收集该信息")
+                        writer.appendLine("应用包名: 用户未同意收集此信息")
                     }
                     if (config.appInfo["应用版本号"] == true) {
                         writer.appendLine("应用版本号: ${packageInfo.versionName ?: "未知"}")
                     } else {
-                        writer.appendLine("应用版本号: 用户未同意收集该信息")
+                        writer.appendLine("应用版本号: 用户未同意收集此信息")
                     }
                     if (config.appInfo["应用版本代码"] == true) {
                         writer.appendLine("应用版本代码: ${packageInfo.longVersionCode}")
                     } else {
-                        writer.appendLine("应用版本代码: 用户未同意收集该信息")
+                        writer.appendLine("应用版本代码: 用户未同意收集此信息")
                     }
                     if (config.appInfo["最低支持API版本"] == true) {
                         writer.appendLine("最低支持API版本: ${appInfo.minSdkVersion}")
                     } else {
-                        writer.appendLine("最低支持API版本: 用户未同意收集该信息")
+                        writer.appendLine("最低支持API版本: 用户未同意收集此信息")
                     }
                     if (config.appInfo["目标API版本"] == true) {
                         writer.appendLine("目标API版本: ${appInfo.targetSdkVersion}")
                     } else {
-                        writer.appendLine("目标API版本: 用户未同意收集该信息")
+                        writer.appendLine("目标API版本: 用户未同意收集此信息")
                     }
                     if (config.appInfo["安装时间"] == true) {
                         writer.appendLine("安装时间: ${dateFormat.format(Date(packageInfo.firstInstallTime))}")
                     } else {
-                        writer.appendLine("安装时间: 用户未同意收集该信息")
+                        writer.appendLine("安装时间: 用户未同意收集此信息")
                     }
                     if (config.appInfo["更新时间"] == true) {
                         writer.appendLine("更新时间: ${dateFormat.format(Date(packageInfo.lastUpdateTime))}")
                     } else {
-                        writer.appendLine("更新时间: 用户未同意收集该信息")
+                        writer.appendLine("更新时间: 用户未同意收集此信息")
                     }
                     writer.appendLine("===============================")
                     writer.appendLine()
@@ -242,34 +242,38 @@ object LogcatExportUtil {
 
                 // 直接写入logcat日志（不限制行数，流式写入避免内存溢出）
                 writer.appendLine("========== Logcat日志 ==========")
-                try {
-                    val process = Runtime.getRuntime().exec("logcat -d -v time")
-                    val reader = BufferedReader(InputStreamReader(process.inputStream))
-                    var line: String?
+                // 检查是否选择了任何logcat类型
+                val anyLogcatTypeSelected = config.logcatTypes.any { it.value }
+                if (!anyLogcatTypeSelected) {
+                    // 未勾选任何logcat类型，不输出日志
+                    writer.appendLine("用户未同意收集任何日志类型")
+                } else {
+                    try {
+                        val process = Runtime.getRuntime().exec("logcat -d -v time")
+                        val reader = BufferedReader(InputStreamReader(process.inputStream))
+                        var line: String?
 
-                    while (reader.readLine().also { line = it } != null) {
-                        // 根据用户选择过滤日志类型
-                        val shouldInclude = when {
-                            config.logcatTypes["错误"] == true && line?.contains("E/") == true -> true
-                            config.logcatTypes["警告"] == true && line?.contains("W/") == true -> true
-                            config.logcatTypes["信息"] == true && line?.contains("I/") == true -> true
-                            config.logcatTypes["错误"] == true || config.logcatTypes["警告"] == true || config.logcatTypes["信息"] == true -> {
-                                // 如果用户选择了任何一种类型，但当前行不匹配，则跳过
-                                false
+                        while (reader.readLine().also { line = it } != null) {
+                            // 根据用户选择过滤日志类型
+                            // 未勾选的类型对应的日志不输出
+                            val shouldInclude = when {
+                                config.logcatTypes["错误"] == true && line?.contains("E/") == true -> true
+                                config.logcatTypes["警告"] == true && line?.contains("W/") == true -> true
+                                config.logcatTypes["信息"] == true && line?.contains("I/") == true -> true
+                                else -> false // 未勾选类型的日志不输出
                             }
-                            else -> true // 如果用户没有选择任何类型，则包含所有日志
+
+                            if (shouldInclude) {
+                                writer.appendLine(line)
+                            }
                         }
 
-                        if (shouldInclude) {
-                            writer.appendLine(line)
-                        }
+                        reader.close()
+                        process.destroy()
+                    } catch (e: Exception) {
+                        writer.appendLine("收集logcat失败: ${e.message}")
+                        e.printStackTrace()
                     }
-
-                    reader.close()
-                    process.destroy()
-                } catch (e: Exception) {
-                    writer.appendLine("收集logcat失败: ${e.message}")
-                    e.printStackTrace()
                 }
                 writer.appendLine("===============================")
                 writer.appendLine()
