@@ -3,15 +3,21 @@ package com.timome.eggyhub.data
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import org.json.JSONObject
+import java.io.ByteArrayOutputStream
 import java.io.IOException
+import java.io.InputStream
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.TimeUnit
+import okio.Buffer
+import okio.BufferedSink
 
 /**
  * 将 \uXXXX 格式的 Unicode 字符串解码为中文
@@ -65,6 +71,44 @@ fun decodeServerMessage(encodedMessage: String): String {
  * - 注册: POST /api/auth/register  body: { username, email, password, invite }
  * - 找回密码: POST /api/password/forgot body: { email }
  */
+class CountingRequestBody(
+    private val delegate: RequestBody,
+    private val totalBytes: Long,
+    private val onProgress: (Long, Long, Double) -> Unit
+) : RequestBody() {
+
+    private var uploadedBytes: Long = 0
+    private var startTime: Long = 0
+
+    override fun contentType() = delegate.contentType()
+
+    override fun contentLength() = delegate.contentLength()
+
+    override fun writeTo(sink: BufferedSink) {
+        startTime = System.currentTimeMillis()
+        uploadedBytes = 0
+
+        val buffer = Buffer()
+        delegate.writeTo(buffer)
+
+        val bufferSize = 8192L
+        var bytesRead: Long
+
+        while (buffer.size > 0) {
+            bytesRead = minOf(buffer.size, bufferSize)
+            sink.write(buffer, bytesRead)
+            uploadedBytes += bytesRead
+
+            val elapsedTime = (System.currentTimeMillis() - startTime).toDouble() / 1000.0
+            val speed = if (elapsedTime > 0) uploadedBytes / elapsedTime else 0.0
+
+            onProgress(uploadedBytes, totalBytes, speed)
+        }
+
+        sink.flush()
+    }
+}
+
 object ApiService {
 
     private const val BASE_URL = "https://eggyhub.top/api"
@@ -76,6 +120,10 @@ object ApiService {
     private const val UPDATE_PROFILE_URL = "$BASE_URL/users/update_profile"
     private const val CHANGE_USERNAME_URL = "$BASE_URL/reset_name"
     private const val DELETE_ACCOUNT_URL = "$BASE_URL/account/delete"
+    private const val PUBLISH_ARTICLE_URL = "$BASE_URL/publish"
+    private const val PUBLISH_VIDEO_URL = "$BASE_URL/videos/sub"
+    private const val PUBLISH_SHARE_CODE_URL = "$BASE_URL/gifts/sub"
+    private const val PUBLISH_FILE_URL = "$BASE_URL/repos/upload"
     private const val TIMEOUT_SECONDS = 30
 
     private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
@@ -577,5 +625,273 @@ object ApiService {
         })
 
         return call
+    }
+
+    fun publishArticle(
+        accessToken: String,
+        title: String,
+        content: String,
+        group: Int,
+        onSuccess: (String) -> Unit,
+        onFailure: (String) -> Unit
+    ): Call {
+        val jsonBody = JSONObject()
+        jsonBody.put("id", "unstaged1")
+        jsonBody.put("title", title)
+        jsonBody.put("author", 1)
+        jsonBody.put("content", content)
+        jsonBody.put("group", group)
+
+        val body = jsonBody.toString().toRequestBody(JSON_MEDIA_TYPE)
+        val request = Request.Builder()
+            .url(PUBLISH_ARTICLE_URL)
+            .addHeader("Authorization", "Bearer $accessToken")
+            .post(body)
+            .build()
+
+        val call = httpClient.newCall(request)
+        call.enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                onFailure("上传失败，请检查网络连接")
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                val responseBody = response.body?.string() ?: ""
+                if (response.isSuccessful) {
+                    try {
+                        val json = JSONObject(responseBody)
+                        val message = json.optString("message", "发布成功")
+                        onSuccess(message)
+                    } catch (e: Exception) {
+                        onSuccess("发布成功")
+                    }
+                } else if (response.code == 500) {
+                    onFailure("上传失败，请检查文章名是否重复")
+                } else {
+                    onFailure("上传失败，错误码: ${response.code}")
+                }
+            }
+        })
+
+        return call
+    }
+
+    fun publishVideo(
+        accessToken: String,
+        name: String,
+        bvId: String,
+        description: String,
+        imageUri: android.net.Uri,
+        fileName: String,
+        context: android.content.Context,
+        onSuccess: () -> Unit,
+        onFailure: (String) -> Unit
+    ): Call {
+        try {
+            val jsonObject = JSONObject()
+            jsonObject.put("name", name)
+            jsonObject.put("cover", "")
+            jsonObject.put("description", description)
+            jsonObject.put("stock", 1)
+            jsonObject.put("link", bvId)
+
+            val inputStream = context.contentResolver.openInputStream(imageUri)
+            val imageBytes = getBytes(inputStream)
+
+            val requestBody = MultipartBody.Builder()
+                .setType(MultipartBody.FORM)
+                .addFormDataPart("image", fileName,
+                    RequestBody.create("image/jpeg".toMediaType(), imageBytes))
+                .addFormDataPart(
+                    "info",
+                    null,
+                    RequestBody.create(
+                        "application/json".toMediaType(),
+                        jsonObject.toString()
+                    )
+                )
+                .build()
+
+            val request = Request.Builder()
+                .url(PUBLISH_VIDEO_URL)
+                .post(requestBody)
+                .addHeader("Authorization", "Bearer $accessToken")
+                .build()
+
+            val call = httpClient.newCall(request)
+            call.enqueue(object : Callback {
+                override fun onFailure(call: Call, e: IOException) {
+                    onFailure("上传失败")
+                }
+
+                override fun onResponse(call: Call, response: Response) {
+                    if (response.isSuccessful) {
+                        val jsonString = response.body?.string() ?: ""
+                        try {
+                            val jsonObject = JSONObject(jsonString)
+                            val cover = jsonObject.optString("cover", "")
+                            if (cover.isNotEmpty()) {
+                                onSuccess()
+                            } else {
+                                onFailure("上传失败")
+                            }
+                        } catch (e: Exception) {
+                            onFailure("解析异常")
+                        }
+                    } else {
+                        onFailure("上传失败")
+                    }
+                }
+            })
+
+            return call
+        } catch (e: Exception) {
+            onFailure("上传异常")
+            throw RuntimeException("上传异常", e)
+        }
+    }
+
+    fun publishShareCode(
+        accessToken: String,
+        name: String,
+        firstCode: String,
+        description: String,
+        eggCodeQuantity: Int,
+        imageUri: android.net.Uri,
+        fileName: String,
+        context: android.content.Context,
+        onSuccess: () -> Unit,
+        onFailure: (String) -> Unit
+    ): Call {
+        try {
+            val jsonObject = JSONObject()
+            jsonObject.put("name", name)
+            jsonObject.put("cover", "")
+            jsonObject.put("description", description)
+            jsonObject.put("stock", 1)
+            jsonObject.put("first", firstCode)
+            jsonObject.put("val", eggCodeQuantity.toString())
+
+            val inputStream = context.contentResolver.openInputStream(imageUri)
+            val imageBytes = getBytes(inputStream)
+
+            val requestBody = MultipartBody.Builder()
+                .setType(MultipartBody.FORM)
+                .addFormDataPart("image", fileName,
+                    RequestBody.create("image/jpeg".toMediaType(), imageBytes))
+                .addFormDataPart(
+                    "info",
+                    null,
+                    RequestBody.create(
+                        "application/json".toMediaType(),
+                        jsonObject.toString()
+                    )
+                )
+                .build()
+
+            val request = Request.Builder()
+                .url(PUBLISH_SHARE_CODE_URL)
+                .post(requestBody)
+                .addHeader("Authorization", "Bearer $accessToken")
+                .build()
+
+            val call = httpClient.newCall(request)
+            call.enqueue(object : Callback {
+                override fun onFailure(call: Call, e: IOException) {
+                    onFailure("上传失败")
+                }
+
+                override fun onResponse(call: Call, response: Response) {
+                    if (response.isSuccessful) {
+                        val jsonString = response.body?.string() ?: ""
+                        try {
+                            val jsonObject = JSONObject(jsonString)
+                            val cover = jsonObject.optString("cover", "")
+                            if (cover.isNotEmpty()) {
+                                onSuccess()
+                            } else {
+                                onFailure("上传失败")
+                            }
+                        } catch (e: Exception) {
+                            onFailure("解析异常")
+                        }
+                    } else {
+                        onFailure("上传失败")
+                    }
+                }
+            })
+
+            return call
+        } catch (e: Exception) {
+            onFailure("上传异常")
+            throw RuntimeException("上传异常", e)
+        }
+    }
+
+    fun publishFile(
+        accessToken: String,
+        fileUri: android.net.Uri,
+        fileName: String,
+        context: android.content.Context,
+        onSuccess: () -> Unit,
+        onFailure: (String) -> Unit,
+        onProgress: (Long, Long, Double) -> Unit = { _, _, _ -> }
+    ): Call {
+        try {
+            val inputStream = context.contentResolver.openInputStream(fileUri)
+            val fileBytes = getBytes(inputStream)
+            val totalBytes = fileBytes.size.toLong()
+
+            val fileRequestBody = RequestBody.create("application/octet-stream".toMediaType(), fileBytes)
+            val countingRequestBody = CountingRequestBody(fileRequestBody, totalBytes, onProgress)
+
+            val requestBody = MultipartBody.Builder()
+                .setType(MultipartBody.FORM)
+                .addFormDataPart("file", fileName, countingRequestBody)
+                .build()
+
+            val request = Request.Builder()
+                .url(PUBLISH_FILE_URL)
+                .post(requestBody)
+                .addHeader("Authorization", "Bearer $accessToken")
+                .build()
+
+            val call = httpClient.newCall(request)
+            call.enqueue(object : Callback {
+                override fun onFailure(call: Call, e: IOException) {
+                    onFailure("上传失败")
+                }
+
+                override fun onResponse(call: Call, response: Response) {
+                    if (response.isSuccessful) {
+                        onSuccess()
+                    } else {
+                        onFailure("文件类型不支持或其他错误")
+                    }
+                }
+            })
+
+            return call
+        } catch (e: Exception) {
+            onFailure("上传异常")
+            throw RuntimeException("上传异常", e)
+        }
+    }
+
+    private fun getBytes(inputStream: InputStream?): ByteArray {
+        if (inputStream == null) {
+            return ByteArray(0)
+        }
+        return inputStream.use { stream ->
+            val byteBuffer = ByteArrayOutputStream()
+            val bufferSize = 1024
+            val buffer = ByteArray(bufferSize)
+
+            var len: Int
+            while (stream.read(buffer).also { len = it } != -1) {
+                byteBuffer.write(buffer, 0, len)
+            }
+            byteBuffer.toByteArray()
+        }
     }
 }

@@ -113,6 +113,12 @@ fun HomeScreen(
     // 更改用户名弹窗显示状态
     var showChangeUsername by remember { mutableStateOf(false) }
 
+    // 发布界面显示状态
+    var showCreateArticle by remember { mutableStateOf(false) }
+    var showPublishVideo by remember { mutableStateOf(false) }
+    var showPublishShareCode by remember { mutableStateOf(false) }
+    var showPublishFile by remember { mutableStateOf(false) }
+
     val context = LocalContext.current
 
     // ========== 圆形扩散动画状态 ==========
@@ -220,6 +226,42 @@ fun HomeScreen(
             },
             onChangeInfo = { showChangeInfo = true },
             onChangeUsername = { showChangeUsername = true }
+        )
+        return
+    }
+
+    // 发布文章页面
+    if (showCreateArticle) {
+        CreateArticleScreen(
+            accessToken = accessToken,
+            onBack = { showCreateArticle = false }
+        )
+        return
+    }
+
+    // 发布视频页面
+    if (showPublishVideo) {
+        PublishVideoScreen(
+            accessToken = accessToken,
+            onBack = { showPublishVideo = false }
+        )
+        return
+    }
+
+    // 发布分享码页面
+    if (showPublishShareCode) {
+        PublishShareCodeScreen(
+            accessToken = accessToken,
+            onBack = { showPublishShareCode = false }
+        )
+        return
+    }
+
+    // 发布文件页面
+    if (showPublishFile) {
+        PublishFileScreen(
+            accessToken = accessToken,
+            onBack = { showPublishFile = false }
         )
         return
     }
@@ -356,7 +398,7 @@ fun HomeScreen(
                         FloatingActionButton(
                             onClick = {
                                 isFabExpanded = false
-                                Toast.makeText(context, "文章", Toast.LENGTH_SHORT).show()
+                                showCreateArticle = true
                             },
                             containerColor = MaterialTheme.colorScheme.primary,
                             contentColor = MaterialTheme.colorScheme.onPrimary,
@@ -380,7 +422,7 @@ fun HomeScreen(
                         FloatingActionButton(
                             onClick = {
                                 isFabExpanded = false
-                                Toast.makeText(context, "视频", Toast.LENGTH_SHORT).show()
+                                showPublishVideo = true
                             },
                             containerColor = MaterialTheme.colorScheme.primary,
                             contentColor = MaterialTheme.colorScheme.onPrimary,
@@ -404,7 +446,7 @@ fun HomeScreen(
                         FloatingActionButton(
                             onClick = {
                                 isFabExpanded = false
-                                Toast.makeText(context, "分享码", Toast.LENGTH_SHORT).show()
+                                showPublishShareCode = true
                             },
                             containerColor = MaterialTheme.colorScheme.primary,
                             contentColor = MaterialTheme.colorScheme.onPrimary,
@@ -428,7 +470,7 @@ fun HomeScreen(
                         FloatingActionButton(
                             onClick = {
                                 isFabExpanded = false
-                                Toast.makeText(context, "文件", Toast.LENGTH_SHORT).show()
+                                showPublishFile = true
                             },
                             containerColor = MaterialTheme.colorScheme.primary,
                             contentColor = MaterialTheme.colorScheme.onPrimary,

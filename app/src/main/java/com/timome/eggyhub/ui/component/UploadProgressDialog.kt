@@ -2,23 +2,22 @@ package com.timome.eggyhub.ui.component
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,55 +35,53 @@ import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.delay
 
 @Composable
-fun LoadingDialog(
+fun UploadProgressDialog(
     show: Boolean,
-    message: String = "正在登录中...",
-    durationMillis: Long = 3000,
-    autoDismiss: Boolean = true,
-    showCloseButton: Boolean = false,
-    closeButtonText: String = "关闭",
-    onDismiss: () -> Unit = {},
-    onComplete: () -> Unit = {}
+    uploadedBytes: Long,
+    totalBytes: Long,
+    speedBytesPerSec: Double,
+    status: String = "等待上传",
+    onDismiss: () -> Unit = {}
 ) {
-    val progressSize = 56.dp
     val contentHorizontalPadding = 24.dp
     val contentVerticalPadding = 32.dp
     val spacingBetweenProgressAndText = 16.dp
-    val buttonWidth = 140.dp
-    val buttonHeight = 44.dp
-    val buttonSpacing = 20.dp
+    val progressHeight = 8.dp
 
     var isVisible by remember { mutableStateOf(show) }
     var isAnimatingOut by remember { mutableStateOf(false) }
-    var userRequestedClose by remember { mutableStateOf(false) }
+
+    val progress = if (totalBytes > 0) uploadedBytes.toFloat() / totalBytes.toFloat() else 0f
+    val animatedProgress by animateFloatAsState(
+        targetValue = progress,
+        animationSpec = androidx.compose.animation.core.tween(300, easing = LinearEasing),
+        label = "upload_progress"
+    )
+
+    fun formatFileSize(bytes: Long): String {
+        return when {
+            bytes >= 1024 * 1024 -> String.format("%.2f MB", bytes.toDouble() / (1024 * 1024))
+            bytes >= 1024 -> String.format("%.2f KB", bytes.toDouble() / 1024)
+            else -> "$bytes B"
+        }
+    }
+
+    fun formatSpeed(bytesPerSec: Double): String {
+        return when {
+            bytesPerSec >= 1024 * 1024 -> String.format("%.2f MB/s", bytesPerSec / (1024 * 1024))
+            bytesPerSec >= 1024 -> String.format("%.2f KB/s", bytesPerSec / 1024)
+            else -> String.format("%.0f B/s", bytesPerSec)
+        }
+    }
 
     LaunchedEffect(show) {
         if (show) {
             isVisible = true
             isAnimatingOut = false
-            userRequestedClose = false
-
-            if (autoDismiss) {
-                delay(durationMillis)
-                if (!userRequestedClose) {
-                    isAnimatingOut = true
-                    delay(300)
-                    isVisible = false
-                    onComplete()
-                    onDismiss()
-                }
-            }
         } else {
-            isVisible = false
-        }
-    }
-
-    LaunchedEffect(userRequestedClose) {
-        if (userRequestedClose && isVisible) {
             isAnimatingOut = true
             delay(300)
             isVisible = false
-            onComplete()
             onDismiss()
         }
     }
@@ -115,13 +112,13 @@ fun LoadingDialog(
             ) {
                 Card(
                     modifier = Modifier
-                        .fillMaxWidth(0.7f)
+                        .fillMaxWidth(0.85f)
                         .padding(16.dp),
-                    shape = RoundedCornerShape(28.dp),
+                    shape = RoundedCornerShape(24.dp),
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.surface
                     ),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
                 ) {
                     Column(
                         modifier = Modifier
@@ -133,33 +130,42 @@ fun LoadingDialog(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(progressSize),
-                            color = MaterialTheme.colorScheme.primary,
-                            strokeWidth = 5.dp
+                        Text(
+                            text = status,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
 
                         Spacer(modifier = Modifier.height(spacingBetweenProgressAndText))
 
-                        Text(
-                            text = message,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        LinearProgressIndicator(
+                            progress = animatedProgress,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(progressHeight),
+                            color = MaterialTheme.colorScheme.primary,
+                            trackColor = MaterialTheme.colorScheme.surfaceVariant
                         )
 
-                        if (showCloseButton) {
-                            Spacer(modifier = Modifier.height(buttonSpacing))
-                            Button(
-                                onClick = { userRequestedClose = true },
-                                modifier = Modifier
-                                    .width(buttonWidth)
-                                    .height(buttonHeight)
-                            ) {
-                                Text(
-                                    text = closeButtonText,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "${formatFileSize(uploadedBytes)} / ${formatFileSize(totalBytes)}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = formatSpeed(speedBytesPerSec),
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.primary
+                            )
                         }
                     }
                 }
