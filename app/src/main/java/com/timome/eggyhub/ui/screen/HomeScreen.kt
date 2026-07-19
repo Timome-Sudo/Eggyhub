@@ -8,6 +8,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Box
@@ -15,8 +17,16 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.FileCopy
+import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.VideoLibrary
+import androidx.compose.material.icons.filled.Article
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -29,6 +39,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -36,12 +47,16 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import android.widget.Toast
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.size
 import com.timome.eggyhub.ui.component.BottomNavBar
 import com.timome.eggyhub.ui.component.BottomNavItem
 import com.timome.eggyhub.ui.component.CircleRevealOverlay
@@ -72,7 +87,6 @@ fun HomeScreen(
     val itemOrder = remember {
         listOf(
             BottomNavItem.Home.route,
-            BottomNavItem.Publish.route,
             BottomNavItem.Task.route,
             BottomNavItem.Profile.route
         )
@@ -117,6 +131,15 @@ fun HomeScreen(
 
     // 手势滑动累积距离（用于判断是否触发页面切换）
     var dragAccumulator by remember { mutableFloatStateOf(0f) }
+
+    // FAB 展开状态
+    var isFabExpanded by remember { mutableStateOf(false) }
+    // FAB 旋转角度动画
+    val fabRotation by animateFloatAsState(
+        targetValue = if (isFabExpanded) 45f else 0f,
+        animationSpec = tween(durationMillis = 300),
+        label = "fabRotation"
+    )
 
     // 关于应用页面
     if (showAbout) {
@@ -282,9 +305,6 @@ fun HomeScreen(
                             clickedIconIndex = clickedIconIndex
                         )
                     }
-                    BottomNavItem.Publish.route -> {
-                        PublishPageContent()
-                    }
                     BottomNavItem.Task.route -> {
                         TaskPageContent()
                     }
@@ -309,6 +329,129 @@ fun HomeScreen(
                             onAccountSettingsClick = { showAccountSettings = true }
                         )
                     }
+                }
+            }
+        }
+
+        // FAB 按钮区域
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 16.dp, bottom = 100.dp)
+        ) {
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // 文章按钮
+                AnimatedContent(
+                    targetState = isFabExpanded,
+                    transitionSpec = {
+                        (fadeIn() + slideInVertically(initialOffsetY = { 50 })) togetherWith
+                        (fadeOut() + slideOutVertically(targetOffsetY = { 50 }))
+                    },
+                    label = "articleButton"
+                ) { visible ->
+                    if (visible) {
+                        FloatingActionButton(
+                            onClick = {
+                                isFabExpanded = false
+                                Toast.makeText(context, "文章", Toast.LENGTH_SHORT).show()
+                            },
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(48.dp)
+                        ) {
+                            Icon(Icons.Filled.Article, contentDescription = "文章")
+                        }
+                    }
+                }
+
+                // 视频按钮
+                AnimatedContent(
+                    targetState = isFabExpanded,
+                    transitionSpec = {
+                        (fadeIn() + slideInVertically(initialOffsetY = { 50 })) togetherWith
+                        (fadeOut() + slideOutVertically(targetOffsetY = { 50 }))
+                    },
+                    label = "videoButton"
+                ) { visible ->
+                    if (visible) {
+                        FloatingActionButton(
+                            onClick = {
+                                isFabExpanded = false
+                                Toast.makeText(context, "视频", Toast.LENGTH_SHORT).show()
+                            },
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(48.dp)
+                        ) {
+                            Icon(Icons.Filled.VideoLibrary, contentDescription = "视频")
+                        }
+                    }
+                }
+
+                // 分享码按钮
+                AnimatedContent(
+                    targetState = isFabExpanded,
+                    transitionSpec = {
+                        (fadeIn() + slideInVertically(initialOffsetY = { 50 })) togetherWith
+                        (fadeOut() + slideOutVertically(targetOffsetY = { 50 }))
+                    },
+                    label = "shareCodeButton"
+                ) { visible ->
+                    if (visible) {
+                        FloatingActionButton(
+                            onClick = {
+                                isFabExpanded = false
+                                Toast.makeText(context, "分享码", Toast.LENGTH_SHORT).show()
+                            },
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(48.dp)
+                        ) {
+                            Icon(Icons.Filled.Link, contentDescription = "分享码")
+                        }
+                    }
+                }
+
+                // 文件按钮
+                AnimatedContent(
+                    targetState = isFabExpanded,
+                    transitionSpec = {
+                        (fadeIn() + slideInVertically(initialOffsetY = { 50 })) togetherWith
+                        (fadeOut() + slideOutVertically(targetOffsetY = { 50 }))
+                    },
+                    label = "fileButton"
+                ) { visible ->
+                    if (visible) {
+                        FloatingActionButton(
+                            onClick = {
+                                isFabExpanded = false
+                                Toast.makeText(context, "文件", Toast.LENGTH_SHORT).show()
+                            },
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(48.dp)
+                        ) {
+                            Icon(Icons.Filled.FileCopy, contentDescription = "文件")
+                        }
+                    }
+                }
+
+                // 主 FAB 按钮
+                FloatingActionButton(
+                    onClick = {
+                        isFabExpanded = !isFabExpanded
+                    },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                ) {
+                    Icon(
+                        Icons.Filled.Add,
+                        contentDescription = "添加",
+                        modifier = Modifier.rotate(fabRotation)
+                    )
                 }
             }
         }

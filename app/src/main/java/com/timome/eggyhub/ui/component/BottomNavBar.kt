@@ -14,11 +14,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.outlined.AddCircleOutline
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Person
@@ -49,13 +47,6 @@ sealed class BottomNavItem(
         selectedIcon = Icons.Filled.Home
     )
 
-    object Publish : BottomNavItem(
-        route = "publish",
-        label = "发布",
-        icon = Icons.Outlined.AddCircleOutline,
-        selectedIcon = Icons.Filled.AddCircle
-    )
-
     object Task : BottomNavItem(
         route = "task",
         label = "任务",
@@ -74,7 +65,6 @@ sealed class BottomNavItem(
 object BottomNavItems {
     val items = listOf(
         BottomNavItem.Home,
-        BottomNavItem.Publish,
         BottomNavItem.Task,
         BottomNavItem.Profile
     )

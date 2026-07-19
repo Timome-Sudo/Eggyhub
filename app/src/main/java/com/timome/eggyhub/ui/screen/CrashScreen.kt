@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -67,8 +69,8 @@ fun CrashScreen(
         modifier = Modifier
             .fillMaxWidth()
             .fillMaxHeight()
-            .background(MaterialTheme.colorScheme.background),
-        verticalArrangement = Arrangement.Center,
+            .background(MaterialTheme.colorScheme.background)
+            .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Column(
@@ -185,7 +187,7 @@ fun CrashScreen(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = 16.dp, vertical = 24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Row(
