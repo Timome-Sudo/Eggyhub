@@ -591,7 +591,7 @@ fun HomeScreen(
             initialSize = revealInitialSize,
             color = revealColor,
             containerWidth = containerWidth,
-            durationMillis = 550,
+            durationMillis = 1000,
             onExpandFinished = {
                 // 放大完成后根据点击的图标索引执行对应操作
                 when (clickedIconIndex) {

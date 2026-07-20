@@ -8,7 +8,6 @@ import android.os.Handler
 import android.os.Looper
 import android.widget.Toast
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,7 +22,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Description
@@ -46,17 +44,24 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 import com.timome.eggyhub.data.ApiService
 import com.timome.eggyhub.ui.component.WaitingDialog
 import kotlin.math.roundToInt
@@ -146,19 +151,11 @@ fun FileManageTab(
                         fontSize = 12.sp
                     )
                     Spacer(modifier = Modifier.height(4.dp))
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState())
-                    ) {
-                        Text(
-                            text = currentRepo.name,
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 1,
-                            softWrap = false
-                        )
-                    }
+                    MarqueeText(
+                        text = currentRepo.name,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = "点击修改",
@@ -190,11 +187,10 @@ fun FileManageTab(
                         fontSize = 12.sp
                     )
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(
+                    MarqueeText(
                         text = currentRepo.description.ifBlank { "无描述" },
                         style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1
+                        fontWeight = FontWeight.SemiBold
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
@@ -227,20 +223,12 @@ fun FileManageTab(
                         fontSize = 12.sp
                     )
                     Spacer(modifier = Modifier.height(4.dp))
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState())
-                    ) {
-                        Text(
-                            text = formatFileSize(usedSizeBytes) + "/" + formatFileSize(maxSizeBytes),
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 12.sp,
-                            maxLines = 1,
-                            softWrap = false
-                        )
-                    }
+                    MarqueeText(
+                        text = formatFileSize(usedSizeBytes) + "/" + formatFileSize(maxSizeBytes),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 12.sp
+                    )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = "点击扩容",
@@ -559,5 +547,69 @@ private fun getFileIcon(fileType: String): ImageVector {
         "pdf" -> Icons.Default.PictureAsPdf
         "text", "txt", "doc", "docx", "xls", "xlsx", "ppt", "pptx" -> Icons.Default.Description
         else -> Icons.Default.TextSnippet
+    }
+}
+
+@Composable
+fun MarqueeText(
+    text: String,
+    modifier: Modifier = Modifier,
+    style: TextStyle = TextStyle.Default,
+    fontWeight: FontWeight? = null,
+    fontSize: androidx.compose.ui.unit.TextUnit = 14.sp,
+    color: androidx.compose.ui.graphics.Color = androidx.compose.ui.graphics.Color.Unspecified,
+    gradientEdgeColor: androidx.compose.ui.graphics.Color = androidx.compose.ui.graphics.Color.White,
+    delayMillis: Int = 2000,
+    animationDurationMillis: Int = 8000
+) {
+    val offsetX = remember { mutableFloatStateOf(0f) }
+    val textLayoutResultState = remember { mutableStateOf<androidx.compose.ui.text.TextLayoutResult?>(null) }
+    val parentWidthState = remember { mutableIntStateOf(0) }
+    val shouldAnimate = remember(text, parentWidthState.intValue, textLayoutResultState.value) {
+        textLayoutResultState.value?.let { it.size.width > parentWidthState.intValue } ?: false
+    }
+
+    LaunchedEffect(shouldAnimate) {
+        if (!shouldAnimate) {
+            offsetX.floatValue = 0f
+            return@LaunchedEffect
+        }
+        while (true) {
+            delay(delayMillis.toLong())
+            val textWidth = textLayoutResultState.value?.size?.width?.toFloat() ?: 0f
+            val distance = textWidth + 100f
+            val duration = animationDurationMillis
+            val startTime = System.currentTimeMillis()
+            val startX = offsetX.floatValue
+            while (System.currentTimeMillis() - startTime < duration) {
+                val progress = (System.currentTimeMillis() - startTime).toFloat() / duration
+                offsetX.floatValue = startX - distance * progress
+                delay(16)
+            }
+            offsetX.floatValue = parentWidthState.intValue.toFloat()
+            delay(500)
+        }
+    }
+
+    SubcomposeLayout(modifier = modifier.clipToBounds()) { constraints ->
+        val parentWidth = constraints.maxWidth
+        parentWidthState.intValue = parentWidth
+
+        val placeable = subcompose("text") {
+            Text(
+                text = text,
+                style = style,
+                fontWeight = fontWeight,
+                fontSize = fontSize,
+                color = color,
+                maxLines = 1,
+                softWrap = false,
+                onTextLayout = { textLayoutResultState.value = it }
+            )
+        }[0].measure(Constraints(maxWidth = Constraints.Infinity))
+
+        layout(parentWidth, placeable.height) {
+            placeable.place(offsetX.floatValue.roundToInt(), 0)
+        }
     }
 }

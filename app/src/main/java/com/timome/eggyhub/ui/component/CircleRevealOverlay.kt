@@ -63,7 +63,7 @@ fun CircleRevealOverlay(
     initialSize: Float,
     color: Color,
     containerWidth: Float,
-    durationMillis: Int = 500,
+    durationMillis: Int = 1000,
     onExpandFinished: () -> Unit = {},
     onFinished: () -> Unit = {},
     modifier: Modifier = Modifier
@@ -73,7 +73,7 @@ fun CircleRevealOverlay(
     var isExpanded by remember { mutableStateOf(false) }
     var isReversing by remember { mutableStateOf(false) }
 
-    val targetRadius = containerWidth
+    val targetRadius = containerWidth * 2
 
     LaunchedEffect(visible) {
         if (visible) {
