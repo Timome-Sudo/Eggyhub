@@ -88,7 +88,7 @@ fun LoginErrorDialog(
                 // 第一行：复制错误 + 联系开发者
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally)
                 ) {
                     OutlinedButton(
                         onClick = {
@@ -97,8 +97,7 @@ fun LoginErrorDialog(
                             clipboard.setPrimaryClip(clip)
                             android.widget.Toast.makeText(context, "错误信息已复制", android.widget.Toast.LENGTH_SHORT).show()
                         },
-                        modifier = Modifier
-                            .weight(1f),
+                        modifier = Modifier.height(44.dp),
                         shape = RoundedCornerShape(10.dp)
                     ) {
                         Text(
@@ -113,8 +112,7 @@ fun LoginErrorDialog(
                             val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://qm.qq.com/q/4HHCFlN9M4"))
                             context.startActivity(intent)
                         },
-                        modifier = Modifier
-                            .weight(1f),
+                        modifier = Modifier.height(44.dp),
                         shape = RoundedCornerShape(10.dp)
                     ) {
                         Text(
@@ -130,12 +128,11 @@ fun LoginErrorDialog(
                 // 第二行：导出logcat + 确定按钮
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally)
                 ) {
                     OutlinedButton(
                         onClick = { onExportLogcat() },
-                        modifier = Modifier
-                            .weight(1f),
+                        modifier = Modifier.height(44.dp),
                         shape = RoundedCornerShape(10.dp)
                     ) {
                         Text(
@@ -147,8 +144,7 @@ fun LoginErrorDialog(
 
                     OutlinedButton(
                         onClick = { onConfirm() },
-                        modifier = Modifier
-                            .weight(1f),
+                        modifier = Modifier.height(44.dp),
                         shape = RoundedCornerShape(10.dp)
                     ) {
                         Text(
@@ -220,7 +216,7 @@ fun LoginErrorDialog(
                 // 第一行：复制错误 + 联系开发者
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally)
                 ) {
                     OutlinedButton(
                         onClick = {
@@ -229,8 +225,7 @@ fun LoginErrorDialog(
                             clipboard.setPrimaryClip(clip)
                             android.widget.Toast.makeText(context, "错误信息已复制", android.widget.Toast.LENGTH_SHORT).show()
                         },
-                        modifier = Modifier
-                            .weight(1f),
+                        modifier = Modifier.height(44.dp),
                         shape = RoundedCornerShape(10.dp)
                     ) {
                         Text(
@@ -245,8 +240,7 @@ fun LoginErrorDialog(
                             val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://qm.qq.com/q/4HHCFlN9M4"))
                             context.startActivity(intent)
                         },
-                        modifier = Modifier
-                            .weight(1f),
+                        modifier = Modifier.height(44.dp),
                         shape = RoundedCornerShape(10.dp)
                     ) {
                         Text(
@@ -263,7 +257,8 @@ fun LoginErrorDialog(
                 OutlinedButton(
                     onClick = { onConfirm() },
                     modifier = Modifier
-                        .fillMaxWidth(),
+                        .fillMaxWidth()
+                        .height(48.dp),
                     shape = RoundedCornerShape(10.dp)
                 ) {
                     Text(

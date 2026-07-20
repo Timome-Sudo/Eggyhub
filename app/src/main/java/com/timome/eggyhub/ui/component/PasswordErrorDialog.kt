@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -77,12 +76,11 @@ fun PasswordErrorDialog(
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally)
                 ) {
                     OutlinedButton(
                         onClick = { onConfirm() },
-                        modifier = Modifier
-                            .weight(1f),
+                        modifier = Modifier.height(44.dp),
                         shape = RoundedCornerShape(10.dp)
                     ) {
                         Text(
@@ -92,12 +90,9 @@ fun PasswordErrorDialog(
                         )
                     }
 
-                    Spacer(modifier = Modifier.width(8.dp))
-
                     Button(
                         onClick = { onForgotPassword() },
-                        modifier = Modifier
-                            .weight(1f),
+                        modifier = Modifier.height(44.dp),
                         shape = RoundedCornerShape(10.dp)
                     ) {
                         Text(

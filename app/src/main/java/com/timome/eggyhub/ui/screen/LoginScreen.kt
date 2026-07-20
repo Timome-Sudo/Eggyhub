@@ -1,6 +1,8 @@
 package com.timome.eggyhub.ui.screen
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -12,9 +14,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -36,16 +38,15 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.timome.eggyhub.data.ApiService
 import com.timome.eggyhub.ui.component.CaptchaDialog
+import com.timome.eggyhub.ui.component.DataCollectionConfig
+import com.timome.eggyhub.ui.component.DataCollectionDialog
+import com.timome.eggyhub.ui.component.ExportLogcatProgressDialog
+import com.timome.eggyhub.ui.component.ExportLogcatWarningDialog
 import com.timome.eggyhub.ui.component.LoadingDialog
 import com.timome.eggyhub.ui.component.LoginErrorDialog
 import com.timome.eggyhub.ui.component.PasswordErrorDialog
-import com.timome.eggyhub.ui.component.ExportLogcatWarningDialog
-import com.timome.eggyhub.ui.component.ExportLogcatProgressDialog
-import com.timome.eggyhub.ui.component.DataCollectionDialog
-import com.timome.eggyhub.data.ApiService
-import com.timome.eggyhub.util.LogcatExportUtil
-import com.timome.eggyhub.ui.component.DataCollectionConfig
 import kotlinx.coroutines.launch
 import okhttp3.Call
 
@@ -191,52 +192,60 @@ fun LoginScreen(
             password = passwordInput,
             onSuccess = { response ->
                 if (!isLoading) return@login
-                Toast.makeText(
-                    context,
-                    "登录成功",
-                    Toast.LENGTH_SHORT
-                ).show()
+                
+                // 在主线程显示 Toast
+                Handler(Looper.getMainLooper()).post {
+                    Toast.makeText(
+                        context,
+                        "登录成功",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
 
                 // 登录成功后，立即获取用户资料
                 ApiService.fetchUserProfile(
                     accessToken = response.accessToken,
                     onSuccess = { profile ->
-                        isLoading = false
-                        currentLoginCall = null
-                        coroutineScope.launch {
-                            onLoginSuccess(
-                                response.accessToken,
-                                profile.username.ifBlank { response.user.username },
-                                profile.email.ifBlank { response.user.email },
-                                passwordInput,
-                                if (profile.id > 0) profile.id else response.user.id,
-                                profile.role.ifBlank { response.user.role },
-                                profile.sponser.ifBlank { response.user.sponser },
-                                profile.avatar,
-                                profile.contact,
-                                profile.description,
-                                profile.eggyid
-                            )
+                        Handler(Looper.getMainLooper()).post {
+                            isLoading = false
+                            currentLoginCall = null
+                            coroutineScope.launch {
+                                onLoginSuccess(
+                                    response.accessToken,
+                                    profile.username.ifBlank { response.user.username },
+                                    profile.email.ifBlank { response.user.email },
+                                    passwordInput,
+                                    if (profile.id > 0) profile.id else response.user.id,
+                                    profile.role.ifBlank { response.user.role },
+                                    profile.sponser.ifBlank { response.user.sponser },
+                                    profile.avatar,
+                                    profile.contact,
+                                    profile.description,
+                                    profile.eggyid
+                                )
+                            }
                         }
                     },
                     onFailure = {
-                        // 获取用户资料失败，仍用登录返回的基础信息继续
-                        isLoading = false
-                        currentLoginCall = null
-                        coroutineScope.launch {
-                            onLoginSuccess(
-                                response.accessToken,
-                                response.user.username,
-                                response.user.email,
-                                passwordInput,
-                                response.user.id,
-                                response.user.role,
-                                response.user.sponser,
-                                "",
-                                "",
-                                "",
-                                ""
-                            )
+                        Handler(Looper.getMainLooper()).post {
+                            // 获取用户资料失败，仍用登录返回的基础信息继续
+                            isLoading = false
+                            currentLoginCall = null
+                            coroutineScope.launch {
+                                onLoginSuccess(
+                                    response.accessToken,
+                                    response.user.username,
+                                    response.user.email,
+                                    passwordInput,
+                                    response.user.id,
+                                    response.user.role,
+                                    response.user.sponser,
+                                    "",
+                                    "",
+                                    "",
+                                    ""
+                                )
+                            }
                         }
                     }
                 )
@@ -251,15 +260,21 @@ fun LoginScreen(
                 // 根据错误类型选择不同的弹窗
                 when {
                     isPasswordError(msg) -> {
-                        passwordError = "密码错误，请重新输入"
-                        showPasswordErrorDialog = true
+                        Handler(Looper.getMainLooper()).post {
+                            passwordError = "密码错误，请重新输入"
+                            showPasswordErrorDialog = true
+                        }
                     }
                     isEmailOrUserError(msg) -> {
-                        emailError = msg
-                        showLoginErrorDialog = true
+                        Handler(Looper.getMainLooper()).post {
+                            emailError = msg
+                            showLoginErrorDialog = true
+                        }
                     }
                     else -> {
-                        showLoginErrorDialog = true
+                        Handler(Looper.getMainLooper()).post {
+                            showLoginErrorDialog = true
+                        }
                     }
                 }
             }

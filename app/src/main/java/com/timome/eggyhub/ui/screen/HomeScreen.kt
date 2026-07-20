@@ -57,12 +57,12 @@ import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.size
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import com.timome.eggyhub.ui.component.BottomNavBar
 import com.timome.eggyhub.ui.component.BottomNavItem
 import com.timome.eggyhub.ui.component.CircleRevealOverlay
 import com.timome.eggyhub.ui.component.DataCollectionConfig
-import com.timome.eggyhub.ui.component.ChangeInfoDialog
-import com.timome.eggyhub.ui.component.ChangeUsernameDialog
 import kotlin.math.abs
 import kotlinx.coroutines.launch
 
@@ -108,10 +108,6 @@ fun HomeScreen(
     var showAccountSettings by remember { mutableStateOf(false) }
     // 更改密码页面显示状态
     var showChangePassword by remember { mutableStateOf(false) }
-    // 更改详细信息弹窗显示状态
-    var showChangeInfo by remember { mutableStateOf(false) }
-    // 更改用户名弹窗显示状态
-    var showChangeUsername by remember { mutableStateOf(false) }
 
     // 发布界面显示状态
     var showCreateArticle by remember { mutableStateOf(false) }
@@ -146,6 +142,29 @@ fun HomeScreen(
         animationSpec = tween(durationMillis = 300),
         label = "fabRotation"
     )
+    // FAB 是否显示在屏幕内（用于控制平移动画，支持先收回再移动）
+    var fabShown by remember { mutableStateOf(true) }
+    // FAB 水平平移动画（向右移动到屏幕外）
+    val fabTranslateX by animateFloatAsState(
+        targetValue = if (fabShown) 0f else 300f,
+        animationSpec = tween(durationMillis = 300),
+        label = "fabTranslateX"
+    )
+    // 监听页面切换，实现先收回再移动的序列动画
+    LaunchedEffect(selectedIndex) {
+        if (selectedIndex == 0) {
+            // 切回主页：先移入，然后不自动展开
+            fabShown = true
+        } else {
+            // 切换到非主页
+            if (isFabExpanded) {
+                // 如果FAB展开，先收回小按钮，等待动画完成后再移出
+                isFabExpanded = false
+                kotlinx.coroutines.delay(300)
+            }
+            fabShown = false
+        }
+    }
 
     // 关于应用页面
     if (showAbout) {
@@ -224,8 +243,12 @@ fun HomeScreen(
             onDeleteAccount = {
                 Toast.makeText(context, "注销账户功能开发中", Toast.LENGTH_SHORT).show()
             },
-            onChangeInfo = { showChangeInfo = true },
-            onChangeUsername = { showChangeUsername = true }
+            eggyid = eggyid,
+            description = description,
+            contact = contact,
+            username = username,
+            isGuestMode = accessToken.isEmpty(),
+            accessToken = accessToken
         )
         return
     }
@@ -375,17 +398,20 @@ fun HomeScreen(
             }
         }
 
-        // FAB 按钮区域
+        // FAB 按钮区域（只有在主页时显示，其他页面向右移动到屏幕外）
         Box(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(end = 16.dp, bottom = 100.dp)
+                .graphicsLayer {
+                    translationX = fabTranslateX
+                }
         ) {
             Column(
                 horizontalAlignment = Alignment.End,
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // 文章按钮
+                // 文章按钮（向上展开，向下收回）
                 AnimatedContent(
                     targetState = isFabExpanded,
                     transitionSpec = {
@@ -409,7 +435,7 @@ fun HomeScreen(
                     }
                 }
 
-                // 视频按钮
+                // 视频按钮（向上展开，向下收回）
                 AnimatedContent(
                     targetState = isFabExpanded,
                     transitionSpec = {
@@ -433,7 +459,7 @@ fun HomeScreen(
                     }
                 }
 
-                // 分享码按钮
+                // 分享码按钮（向上展开，向下收回）
                 AnimatedContent(
                     targetState = isFabExpanded,
                     transitionSpec = {
@@ -457,7 +483,7 @@ fun HomeScreen(
                     }
                 }
 
-                // 文件按钮
+                // 文件按钮（向上展开，向下收回）
                 AnimatedContent(
                     targetState = isFabExpanded,
                     transitionSpec = {
@@ -504,17 +530,17 @@ fun HomeScreen(
                 .align(Alignment.BottomCenter)
         ) {
             BottomNavBar(
-                selectedItem = itemOrder[selectedIndex],
-                onItemSelected = { route ->
-                    val targetIndex = itemOrder.indexOf(route)
-                    if (targetIndex != selectedIndex) {
-                        // 记录上一个索引用于判断动画方向
-                        previousIndexForAnimation = selectedIndex
-                        // 直接切换到目标页（类似 tab 逻辑，不经过中间页面）
-                        selectedIndex = targetIndex
+                    selectedItem = itemOrder[selectedIndex],
+                    onItemSelected = { route ->
+                        val targetIndex = itemOrder.indexOf(route)
+                        if (targetIndex != selectedIndex) {
+                            // 记录上一个索引用于判断动画方向
+                            previousIndexForAnimation = selectedIndex
+                            // 直接切换到目标页（类似 tab 逻辑，不经过中间页面）
+                            selectedIndex = targetIndex
+                        }
                     }
-                }
-            )
+                )
         }
 
         // 圆形扩散动画覆盖层（置于最上层，zIndex 保证覆盖所有内容）
@@ -536,32 +562,4 @@ fun HomeScreen(
                 .padding(bottom = 80.dp)
         )
     }
-
-    // 更改详细信息弹窗
-    ChangeInfoDialog(
-        show = showChangeInfo,
-        eggyid = eggyid,
-        description = description,
-        contact = contact,
-        onDismiss = { showChangeInfo = false },
-        onSuccess = {
-            showChangeInfo = false
-            Toast.makeText(context, "资料更新成功", Toast.LENGTH_SHORT).show()
-        },
-        isGuestMode = accessToken.isEmpty(),
-        accessToken = accessToken
-    )
-
-    // 更改用户名弹窗
-    ChangeUsernameDialog(
-        show = showChangeUsername,
-        currentUsername = username,
-        onDismiss = { showChangeUsername = false },
-        onSuccess = {
-            showChangeUsername = false
-            Toast.makeText(context, "用户名修改成功", Toast.LENGTH_SHORT).show()
-        },
-        isGuestMode = accessToken.isEmpty(),
-        accessToken = accessToken
-    )
 }

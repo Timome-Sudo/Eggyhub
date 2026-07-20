@@ -139,14 +139,25 @@ fun UploadProgressDialog(
 
                         Spacer(modifier = Modifier.height(spacingBetweenProgressAndText))
 
-                        LinearProgressIndicator(
-                            progress = animatedProgress,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(progressHeight),
-                            color = MaterialTheme.colorScheme.primary,
-                            trackColor = MaterialTheme.colorScheme.surfaceVariant
-                        )
+                        // 等待状态显示不确定进度条，上传中显示确定进度条
+                        if (status.contains("等待")) {
+                            LinearProgressIndicator(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(progressHeight),
+                                color = MaterialTheme.colorScheme.primary,
+                                trackColor = MaterialTheme.colorScheme.surfaceVariant
+                            )
+                        } else {
+                            LinearProgressIndicator(
+                                progress = animatedProgress,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(progressHeight),
+                                color = MaterialTheme.colorScheme.primary,
+                                trackColor = MaterialTheme.colorScheme.surfaceVariant
+                            )
+                        }
 
                         Spacer(modifier = Modifier.height(12.dp))
 

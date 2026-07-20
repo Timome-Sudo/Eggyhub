@@ -1,5 +1,6 @@
 package com.timome.eggyhub.ui.screen
 
+import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -28,12 +29,19 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.timome.eggyhub.ui.component.ChangeInfoDialog
+import com.timome.eggyhub.ui.component.ChangeUsernameDialog
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
@@ -41,9 +49,18 @@ fun AccountSettingsScreen(
     onBack: () -> Unit = {},
     onChangePassword: () -> Unit = {},
     onDeleteAccount: () -> Unit = {},
-    onChangeInfo: () -> Unit = {},
-    onChangeUsername: () -> Unit = {}
+    eggyid: String = "",
+    description: String = "",
+    contact: String = "",
+    username: String = "",
+    isGuestMode: Boolean = false,
+    accessToken: String = ""
 ) {
+    val context = LocalContext.current
+
+    var showChangeInfo by remember { mutableStateOf(false) }
+    var showChangeUsername by remember { mutableStateOf(false) }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -94,7 +111,7 @@ fun AccountSettingsScreen(
                         icon = Icons.Default.Edit,
                         title = "更改详细信息",
                         description = "修改蛋仔昵称、简介、联系方式",
-                        onClick = onChangeInfo
+                        onClick = { showChangeInfo = true }
                     )
 
                     Spacer(modifier = Modifier.height(12.dp))
@@ -103,7 +120,7 @@ fun AccountSettingsScreen(
                         icon = Icons.Default.Person,
                         title = "更改用户名",
                         description = "修改您的用户名",
-                        onClick = onChangeUsername
+                        onClick = { showChangeUsername = true }
                     )
 
                     Spacer(modifier = Modifier.height(12.dp))
@@ -118,6 +135,32 @@ fun AccountSettingsScreen(
                 }
             }
         }
+    )
+
+    ChangeInfoDialog(
+        show = showChangeInfo,
+        eggyid = eggyid,
+        description = description,
+        contact = contact,
+        onDismiss = { showChangeInfo = false },
+        onSuccess = {
+            showChangeInfo = false
+            Toast.makeText(context, "资料更新成功", Toast.LENGTH_SHORT).show()
+        },
+        isGuestMode = isGuestMode,
+        accessToken = accessToken
+    )
+
+    ChangeUsernameDialog(
+        show = showChangeUsername,
+        currentUsername = username,
+        onDismiss = { showChangeUsername = false },
+        onSuccess = {
+            showChangeUsername = false
+            Toast.makeText(context, "用户名修改成功", Toast.LENGTH_SHORT).show()
+        },
+        isGuestMode = isGuestMode,
+        accessToken = accessToken
     )
 }
 
