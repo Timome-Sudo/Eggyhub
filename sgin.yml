@@ -1,0 +1,106 @@
+name: Android Sign After Build
+env:
+  ANDROID_HOME: ~/android-sdk
+  APK_DIR: app/build/outputs/apk/release
+  UNSIGNED_APK_NAME: app-prerelease-unsigned.apk
+  FINAL_SIGNED_APK: app-prerelease-signed-final.apk
+  KEYSTORE_FILE: ./prekey
+  KEYSTORE_PWD: 114514
+  KEY_ALIAS: key0
+  KEY_PWD: 114514
+  BUILD_TOOLS_VERSION: 35.0.0
+  TZ: Asia/Shanghai
+
+# 上游构建完成触发
+on:
+  workflow_run:
+    workflows: ["Android Build Only"]
+    types: [completed]
+
+jobs:
+  sign_apk:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: 拉取源码获取prekey密钥
+        uses: actions/checkout@v5
+
+      - name: 下载构建产出未签名APK
+        uses: actions/download-artifact@v5
+        with:
+          name: unsigned-preview-apk
+          path: ${{ env.APK_DIR }}
+
+      - name: 配置JDK17
+        uses: actions/setup-java@v5
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: 缓存Android SDK
+        uses: actions/cache@v5
+        with:
+          path: ~/android-sdk
+          key: ${{ runner.os }}-android-sdk
+
+      - name: 安装Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: 校验密钥与APK文件
+        run: |
+          UNSIGNED=${{ env.APK_DIR }}/${{ env.UNSIGNED_APK_NAME }}
+          if [ ! -f "$UNSIGNED" ]; then
+            echo "错误：未找到未签名APK"
+            exit 1
+          fi
+          if [ ! -f ${{ env.KEYSTORE_FILE }} ]; then
+            echo "错误：根目录缺少prekey签名文件"
+            exit 1
+          fi
+          ls -la ${{ env.APK_DIR }}
+
+      - name: 自动签名逻辑（优先apksigner，失败切换jarsigner）
+        run: |
+          BUILD_TOOLS=${{ env.ANDROID_HOME }}/build-tools/${{ env.BUILD_TOOLS_VERSION }}
+          APKSIGNER=$BUILD_TOOLS/apksigner
+          ZIPALIGN=$BUILD_TOOLS/zipalign
+          UNSIGNED=${{ env.APK_DIR }}/${{ env.UNSIGNED_APK_NAME }}
+          FINAL=${{ env.APK_DIR }}/${{ env.FINAL_SIGNED_APK }}
+          TMP_ALIGN=${{ env.APK_DIR }}/.tmp-align.apk
+
+          chmod +x "$APKSIGNER" "$ZIPALIGN"
+          echo "===== 尝试方案A apksigner V1/V2/V3签名 ====="
+          $ZIPALIGN -f 4 "$UNSIGNED" "$TMP_ALIGN"
+
+          if "$APKSIGNER" sign \
+            --ks ${{ env.KEYSTORE_FILE }} \
+            --ks-pass pass:${{ env.KEYSTORE_PWD }} \
+            --key-pass pass:${{ env.KEY_PWD }} \
+            --ks-key-alias ${{ env.KEY_ALIAS }} \
+            --min-sdk-version 21 \
+            "$TMP_ALIGN"; then
+            mv "$TMP_ALIGN" "$FINAL"
+            echo "✅ apksigner签名成功，输出：$FINAL"
+          else
+            echo "❌ apksigner失败，自动启用方案B jarsigner兜底"
+            jarsigner \
+              -keystore ${{ env.KEYSTORE_FILE }} \
+              -storepass ${{ env.KEYSTORE_PWD }} \
+              -keypass ${{ env.KEY_PWD }} \
+              -sigalg SHA256withRSA \
+              -digestalg SHA-256 \
+              "$TMP_ALIGN" \
+              ${{ env.KEY_ALIAS }}
+            mv "$TMP_ALIGN" "$FINAL"
+            echo "✅ jarsigner兜底签名成功，输出：$FINAL"
+          fi
+
+      - name: 上传最终签名成品APK
+        uses: actions/upload-artifact@v5
+        with:
+          name: final-signed-apk
+          path: ${{ env.APK_DIR }}/${{ env.FINAL_SIGNED_APK }}
+          retention-days: 14
