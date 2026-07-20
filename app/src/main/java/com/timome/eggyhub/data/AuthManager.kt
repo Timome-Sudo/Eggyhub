@@ -8,9 +8,12 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "auth_preferences")
 
@@ -23,6 +26,7 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
  */
 class AuthManager(context: Context) {
     private val dataStore = context.dataStore
+    private val appContext = context.applicationContext
 
     companion object {
         private val IS_LOGGED_IN = booleanPreferencesKey("is_logged_in")
@@ -37,6 +41,9 @@ class AuthManager(context: Context) {
         private val CONTACT = stringPreferencesKey("contact")
         private val DESCRIPTION = stringPreferencesKey("description")
         private val EGGYID = stringPreferencesKey("eggyid")
+        private val LAST_REFRESH_TIME = longPreferencesKey("last_refresh_time")
+
+        const val REFRESH_INTERVAL_MS = 10 * 60 * 1000L
     }
 
     /** 是否登录 */
@@ -82,6 +89,10 @@ class AuthManager(context: Context) {
     /** 蛋仔昵称 */
     val eggyid: Flow<String> = dataStore.data
         .map { preferences -> preferences[EGGYID] ?: "" }
+
+    /** 最后刷新时间 */
+    val lastRefreshTime: Flow<Long> = dataStore.data
+        .map { preferences -> preferences[LAST_REFRESH_TIME] ?: 0L }
 
     /** 密码（解密后） */
     val password: Flow<String> = dataStore.data
@@ -172,6 +183,65 @@ class AuthManager(context: Context) {
             preferences[CONTACT] = ""
             preferences[DESCRIPTION] = ""
             preferences[EGGYID] = ""
+            preferences[LAST_REFRESH_TIME] = 0L
+        }
+    }
+
+    /**
+     * 从服务器刷新当前用户的完整信息
+     *
+     * @return 是否刷新成功
+     */
+    suspend fun refreshUserInfo(): Boolean {
+        val token = accessToken.first()
+        if (token.isBlank()) return false
+
+        return kotlinx.coroutines.suspendCancellableCoroutine { continuation ->
+            val call = ApiService.fetchCurrentUserInfo(
+                accessToken = token,
+                onSuccess = { profile ->
+                    kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                        dataStore.edit { preferences ->
+                            preferences[USERNAME] = profile.username
+                            preferences[EMAIL] = profile.email
+                            preferences[ROLE] = profile.role
+                            preferences[SPONSER] = profile.sponser
+                            preferences[AVATAR] = profile.avatar
+                            preferences[CONTACT] = profile.contact
+                            preferences[DESCRIPTION] = profile.description
+                            preferences[EGGYID] = profile.eggyid
+                            preferences[LAST_REFRESH_TIME] = System.currentTimeMillis()
+                        }
+                        continuation.resumeWith(Result.success(true))
+                    }
+                },
+                onFailure = {
+                    continuation.resumeWith(Result.success(false))
+                }
+            )
+            continuation.invokeOnCancellation {
+                call.cancel()
+            }
+        }
+    }
+
+    /**
+     * 检查是否需要刷新用户信息
+     *
+     * @return 是否超过10分钟需要刷新
+     */
+    suspend fun needsRefresh(): Boolean {
+        val lastTime = lastRefreshTime.first()
+        if (lastTime == 0L) return true
+        return System.currentTimeMillis() - lastTime >= REFRESH_INTERVAL_MS
+    }
+
+    /**
+     * 标记用户信息已被修改，下次需要立即刷新
+     */
+    suspend fun markUserInfoModified() {
+        dataStore.edit { preferences ->
+            preferences[LAST_REFRESH_TIME] = 0L
         }
     }
 }

@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -198,6 +199,28 @@ fun EggyhubApp(
     val coroutineScope = rememberCoroutineScope()
 
     val context = androidx.compose.ui.platform.LocalContext.current
+
+    // 用户信息定时刷新（每10分钟）
+    LaunchedEffect(currentScreen, isLoggedIn) {
+        if (currentScreen == AppScreen.HOME && isLoggedIn) {
+            // 进入主页时先检查是否需要刷新
+            if (if (authManager.needsRefresh()) {
+                true
+            } else {
+                false
+            }
+            ) {
+                val refreshUserInfo = authManager.refreshUserInfo()
+            }
+            // 定时循环刷新
+            while (true) {
+                kotlinx.coroutines.delay(AuthManager.REFRESH_INTERVAL_MS)
+                if (authManager.needsRefresh()) {
+                    authManager.refreshUserInfo()
+                }
+            }
+        }
+    }
 
     when (currentScreen) {
         AppScreen.LOGIN -> {

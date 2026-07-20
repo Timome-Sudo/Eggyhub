@@ -55,17 +55,14 @@ fun CreateArticleScreen(
     val context = LocalContext.current
     val mainHandler = Handler(Looper.getMainLooper())
 
-    val totalSteps = 3
+    val totalSteps = 2
     var currentStep by remember { mutableStateOf(1) }
 
     var title by remember { mutableStateOf("") }
     var content by remember { mutableStateOf("") }
-    var selectedCategory by remember { mutableStateOf<String?>(null) }
-    var selectedGroup by remember { mutableStateOf<Int?>(null) }
 
     var titleError by remember { mutableStateOf<String?>(null) }
     var contentError by remember { mutableStateOf<String?>(null) }
-    var categoryError by remember { mutableStateOf<String?>(null) }
     var isSubmitting by remember { mutableStateOf(false) }
 
     var showSuccessDialog by remember { mutableStateOf(false) }
@@ -73,15 +70,6 @@ fun CreateArticleScreen(
     var errorMessage by remember { mutableStateOf("") }
 
     var showHelpDialog by remember { mutableStateOf(false) }
-    var showCategoryDialog by remember { mutableStateOf(false) }
-
-    val categories = listOf(
-        "默认分类" to 1,
-        "蛋码基础" to 2,
-        "蛋码技能" to 3,
-        "蛋码与编程" to 4,
-        "网站" to 5
-    )
 
     fun validateCurrentStep(): Boolean {
         return when (currentStep) {
@@ -95,15 +83,6 @@ fun CreateArticleScreen(
                 }
             }
             2 -> {
-                if (selectedCategory == null) {
-                    categoryError = "请选择文章分类"
-                    false
-                } else {
-                    categoryError = null
-                    true
-                }
-            }
-            3 -> {
                 if (content.isBlank()) {
                     contentError = "请输入文章内容"
                     false
@@ -125,7 +104,7 @@ fun CreateArticleScreen(
             accessToken = accessToken,
             title = title.trim(),
             content = content.trim(),
-            group = selectedGroup!!,
+            group = 1,
             onSuccess = { msg ->
                 mainHandler.post {
                     isSubmitting = false
@@ -207,7 +186,7 @@ fun CreateArticleScreen(
                     StepProgressBar(
                         currentStep = currentStep,
                         totalSteps = totalSteps,
-                        stepLabels = listOf("标题", "分类", "内容"),
+                        stepLabels = listOf("标题", "内容"),
                         modifier = Modifier.fillMaxWidth()
                     )
 
@@ -215,8 +194,7 @@ fun CreateArticleScreen(
 
                     val stepHint = when (currentStep) {
                         1 -> "请输入文章标题"
-                        2 -> "请选择文章分类"
-                        3 -> "请输入文章内容"
+                        2 -> "请输入文章内容"
                         else -> ""
                     }
                     Text(
@@ -257,31 +235,6 @@ fun CreateArticleScreen(
                             )
                         }
                         2 -> {
-                            Button(
-                                onClick = { showCategoryDialog = true },
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(12.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.surface,
-                                    contentColor = MaterialTheme.colorScheme.onSurface
-                                )
-                            ) {
-                                Text(
-                                    text = selectedCategory ?: "请选择分类",
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-
-                            categoryError?.let {
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    text = it,
-                                    color = MaterialTheme.colorScheme.error,
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                            }
-                        }
-                        3 -> {
                             OutlinedTextField(
                                 value = content,
                                 onValueChange = {
@@ -375,71 +328,4 @@ fun CreateArticleScreen(
         onConfirm = { showHelpDialog = false },
         onDismiss = { showHelpDialog = false }
     )
-
-    androidx.compose.ui.window.Dialog(
-        onDismissRequest = { showCategoryDialog = false }
-    ) {
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(24.dp),
-            shape = RoundedCornerShape(24.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(24.dp)
-            ) {
-                Text(
-                    text = "选择分类",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
-
-                categories.forEach { (name, group) ->
-                    Button(
-                        onClick = {
-                            selectedCategory = name
-                            selectedGroup = group
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 8.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (selectedGroup == group) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.surface
-                            },
-                            contentColor = if (selectedGroup == group) {
-                                MaterialTheme.colorScheme.onPrimary
-                            } else {
-                                MaterialTheme.colorScheme.onSurface
-                            }
-                        ),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text(text = name)
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Button(
-                    onClick = {
-                        if (selectedCategory != null) {
-                            categoryError = null
-                            showCategoryDialog = false
-                        } else {
-                            Toast.makeText(context, "请选择一个分类", Toast.LENGTH_SHORT).show()
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    enabled = selectedCategory != null
-                ) {
-                    Text(text = "确定", fontWeight = FontWeight.Medium)
-                }
-            }
-        }
-    }
 }

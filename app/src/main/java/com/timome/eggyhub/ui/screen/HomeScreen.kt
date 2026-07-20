@@ -132,6 +132,7 @@ fun HomeScreen(
     var revealInitialSize by remember { mutableFloatStateOf(48f) }
     var revealColor by remember { mutableStateOf(Color(0xFFF5F5F5)) }
     var clickedIconIndex by remember { mutableStateOf<Int?>(null) }
+    var showRevealContent by remember { mutableStateOf(false) }
 
     // 容器绝对位置（用于将图标相对容器的坐标转换为相对 CircleRevealOverlay 的坐标）
     var containerAbsLeft by remember { mutableFloatStateOf(0f) }
@@ -592,26 +593,47 @@ fun HomeScreen(
             color = revealColor,
             containerWidth = containerWidth,
             durationMillis = 1000,
+            showContent = showRevealContent,
             onExpandFinished = {
                 // 放大完成后根据点击的图标索引执行对应操作
                 when (clickedIconIndex) {
                     6 -> {
-                        // 官方网址 - 打开浏览器
+                        // 官方网址 - 直接打开浏览器，不显示新界面
                         val intent = android.content.Intent(
                             android.content.Intent.ACTION_VIEW,
                             android.net.Uri.parse("https://eggyhub.top")
                         )
                         context.startActivity(intent)
                     }
+                    else -> {
+                        // 其他界面 - 显示内容（淡入）
+                        showRevealContent = true
+                    }
                 }
+            },
+            onBackClick = {
+                // 返回按钮点击回调 - 倒放动画由CircleRevealOverlay内部处理
             },
             onFinished = {
                 clickedIconIndex = null
+                showRevealContent = false
                 revealVisible = false
             },
             modifier = Modifier
                 .fillMaxSize()
-                .padding(bottom = 80.dp)
+                .padding(bottom = 80.dp),
+            content = {
+                when (clickedIconIndex) {
+                    0 -> ShareCodeScreen()
+                    1 -> EmailScreen()
+                    2 -> ArticleScreen()
+                    3 -> VideoScreen()
+                    4 -> StorageScreen()
+                    5 -> CompetitionScreen()
+                    6 -> OfficialWebsiteScreen()
+                    7 -> BaihePlanetScreen()
+                }
+            }
         )
     }
 }

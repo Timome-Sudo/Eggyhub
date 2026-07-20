@@ -124,6 +124,7 @@ object ApiService {
     private const val PUBLISH_VIDEO_URL = "$BASE_URL/videos/sub"
     private const val PUBLISH_SHARE_CODE_URL = "$BASE_URL/gifts/sub"
     private const val PUBLISH_FILE_URL = "$BASE_URL/repos/upload"
+    private const val USER_INFO_URL = "$BASE_URL/user/info"
     private const val TIMEOUT_SECONDS = 30
 
     private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
@@ -440,6 +441,70 @@ object ApiService {
                         }
                     } else {
                         onFailure("获取用户资料失败: ${response.code}")
+                    }
+                } catch (e: Exception) {
+                    onFailure("响应解析失败: $responseBody")
+                }
+            }
+        })
+
+        return call
+    }
+
+    /**
+     * 获取当前登录用户的完整信息（需要 access_token 鉴权）
+     *
+     * 返回包含 email, username, role, sponser, avatar, contact, description, eggyid 等完整信息
+     *
+     * @param accessToken 访问令牌
+     */
+    fun fetchCurrentUserInfo(
+        accessToken: String,
+        onSuccess: (UserProfile) -> Unit,
+        onFailure: (String) -> Unit
+    ): Call {
+        val request = Request.Builder()
+            .url(USER_INFO_URL)
+            .get()
+            .addHeader("Authorization", "Bearer $accessToken")
+            .build()
+
+        val call = httpClient.newCall(request)
+        call.enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                onFailure(e.message ?: "网络请求失败")
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                val responseBody = response.body?.string() ?: ""
+                try {
+                    if (response.isSuccessful) {
+                        if (responseBody.isEmpty()) {
+                            onFailure("服务器返回空响应")
+                            return
+                        }
+                        val json = JSONObject(responseBody)
+                        val success = json.optBoolean("success", false)
+
+                        if (success) {
+                            val dataObj = json.optJSONObject("data")
+                            val profile = UserProfile(
+                                id = dataObj?.optInt("id", 0) ?: 0,
+                                username = dataObj?.optString("username", "") ?: "",
+                                email = dataObj?.optString("email", "") ?: "",
+                                role = dataObj?.optString("role", "") ?: "",
+                                sponser = dataObj?.optString("sponser", "0") ?: "0",
+                                avatar = dataObj?.optString("avatar", "") ?: "",
+                                contact = dataObj?.optString("contact", "") ?: "",
+                                description = dataObj?.optString("description", "") ?: "",
+                                eggyid = dataObj?.optString("eggyid", "") ?: ""
+                            )
+                            onSuccess(profile)
+                        } else {
+                            onFailure("获取用户信息失败: ${json.optString("message", "未知错误")}")
+                        }
+                    } else {
+                        onFailure("获取用户信息失败: ${response.code}")
                     }
                 } catch (e: Exception) {
                     onFailure("响应解析失败: $responseBody")
