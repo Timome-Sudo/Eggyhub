@@ -386,21 +386,22 @@ object ApiService {
     }
 
     /**
-     * 获取用户资料接口（GET /api/users/profile）
+     * 获取用户资料接口（GET /api/users/profile?id={userId}）
      *
-     * 参考 PersonalHomePageActivity.java 中从 SharedPreferences 读取的字段：
-     * - id, username, email, role, sponser, avatar, contact, description, eggyid
+     * 参考 LoginActivity.java 的 fetchUserProfile 方法：
+     * - 请求方式：GET，参数 id
+     * - 返回结构：{ success: true, data: { avatar, contact, description, eggyid } }
      *
-     * @param accessToken 登录令牌（Bearer Token）
+     * @param userId 用户 ID
      */
     fun fetchUserProfile(
-        accessToken: String,
+        userId: Int,
         onSuccess: (UserProfile) -> Unit,
         onFailure: (String) -> Unit
     ): Call {
         val request = Request.Builder()
-            .url(PROFILE_URL)
-            .addHeader("Authorization", "Bearer $accessToken")
+            .url("$PROFILE_URL?id=$userId")
+            .get()
             .build()
 
         val call = httpClient.newCall(request)
@@ -418,26 +419,25 @@ object ApiService {
                             return
                         }
                         val json = JSONObject(responseBody)
-                        val status = json.optString("status", "")
+                        val success = json.optBoolean("success", false)
 
-                        val userObj = if (json.has("user")) {
-                            json.optJSONObject("user")
+                        if (success) {
+                            val dataObj = json.optJSONObject("data")
+                            val profile = UserProfile(
+                                id = userId,
+                                username = "",
+                                email = "",
+                                role = "",
+                                sponser = "0",
+                                avatar = dataObj?.optString("avatar", "") ?: "",
+                                contact = dataObj?.optString("contact", "") ?: "",
+                                description = dataObj?.optString("description", "") ?: "",
+                                eggyid = dataObj?.optString("eggyid", "") ?: ""
+                            )
+                            onSuccess(profile)
                         } else {
-                            json
+                            onFailure("获取用户资料失败: ${json.optString("message", "未知错误")}")
                         }
-
-                        val profile = UserProfile(
-                            id = userObj?.optInt("id", -1) ?: -1,
-                            username = userObj?.optString("username", "") ?: "",
-                            email = userObj?.optString("email", "") ?: "",
-                            role = userObj?.optString("role", "") ?: "",
-                            sponser = userObj?.optString("sponser", "0") ?: "0",
-                            avatar = userObj?.optString("avatar", "") ?: userObj?.optString("cover", "") ?: "",
-                            contact = userObj?.optString("contact", "") ?: "",
-                            description = userObj?.optString("description", "") ?: "",
-                            eggyid = userObj?.optString("eggyid", "") ?: ""
-                        )
-                        onSuccess(profile)
                     } else {
                         onFailure("获取用户资料失败: ${response.code}")
                     }
@@ -893,5 +893,662 @@ object ApiService {
             }
             byteBuffer.toByteArray()
         }
+    }
+
+    // ========== 内容管理相关API ==========
+
+    private const val MY_ARTICLES_URL = "$BASE_URL/article_list"
+    private const val MY_VIDEOS_URL = "$BASE_URL/myvideos"
+    private const val MY_GIFTS_URL = "$BASE_URL/mygifts"
+    private const val USER_REPOS_URL = "$BASE_URL/user/repos"
+    private const val REPOS_UPDATE_URL = "$BASE_URL/repos/update"
+    private const val EXPAND_STORAGE_URL = "$BASE_URL/coins/tospace"
+    private const val GIFT_GROUPS_URL = "$BASE_URL/giftgroups"
+    private const val GIFT_UPDATE_GROUP_URL = "$BASE_URL/gifts/updategroup"
+    private const val GIFT_UPDATE_DESC_URL = "$BASE_URL/gifts/updatedesc"
+    private const val GIFT_ADD_CODES_URL = "$BASE_URL/gifts/addcodes"
+    private const val GIFT_DELETE_URL = "$BASE_URL/gifts/delete"
+    private const val GIFT_DELETE_CODE_URL = "$BASE_URL/gifts/deletecode"
+    private const val GIFT_DETAIL_URL = "$BASE_URL/gifts/detail"
+
+    data class ManageArticle(
+        val id: Int,
+        val title: String,
+        val author: String,
+        val date: String,
+        val category: String
+    )
+
+    data class ManageVideo(
+        val id: Int,
+        val name: String,
+        val cover: String,
+        val description: String,
+        val link: String,
+        val stock: Int
+    )
+
+    data class ManageShareCode(
+        val id: Int,
+        val name: String,
+        val cover: String,
+        val description: String,
+        val stock: Int,
+        val first: String,
+        val grid: Int
+    )
+
+    data class ShareCodeDetail(
+        val id: Int,
+        val name: String,
+        val cover: String,
+        val description: String,
+        val stock: Int,
+        val grid: Int,
+        val codes: List<String>
+    )
+
+    data class CategoryItem(
+        val id: Int,
+        val name: String
+    )
+
+    data class RepoInfo(
+        val repoId: Int,
+        val name: String,
+        val description: String,
+        val totalSpace: String,
+        val totalSpaceKb: Int,
+        val usedSpace: String,
+        val usedSpaceKb: Int,
+        val fileCount: Int,
+        val createdAt: String,
+        val likes: Int
+    )
+
+    data class ManageFile(
+        val fileId: Int,
+        val fileSize: String,
+        val fileSizeKb: Int,
+        val fileType: String,
+        val originalName: String,
+        val status: Int,
+        val uploadTime: String
+    )
+
+    data class UserRepoResponse(
+        val success: Boolean,
+        val repo: RepoInfo?,
+        val files: List<ManageFile>,
+        val userId: String
+    )
+
+    fun fetchMyArticles(
+        accessToken: String,
+        onSuccess: (List<ManageArticle>) -> Unit,
+        onFailure: (String) -> Unit
+    ): Call {
+        val request = Request.Builder()
+            .url(MY_ARTICLES_URL)
+            .get()
+            .addHeader("Authorization", "Bearer $accessToken")
+            .build()
+
+        val call = httpClient.newCall(request)
+        call.enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                onFailure(e.message ?: "网络请求失败")
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                val responseBody = response.body?.string() ?: ""
+                if (response.isSuccessful) {
+                    try {
+                        val list = parseArticleList(responseBody)
+                        onSuccess(list)
+                    } catch (e: Exception) {
+                        onFailure("解析失败: ${e.message}")
+                    }
+                } else {
+                    onFailure("请求失败: ${response.code}")
+                }
+            }
+        })
+        return call
+    }
+
+    private fun parseArticleList(jsonStr: String): List<ManageArticle> {
+        val list = mutableListOf<ManageArticle>()
+        val jsonArray = org.json.JSONArray(jsonStr)
+        for (i in 0 until jsonArray.length()) {
+            val obj = jsonArray.getJSONObject(i)
+            list.add(
+                ManageArticle(
+                    id = obj.optInt("id", 0),
+                    title = obj.optString("title", ""),
+                    author = obj.optString("author", ""),
+                    date = obj.optString("date", ""),
+                    category = obj.optString("category", "")
+                )
+            )
+        }
+        return list
+    }
+
+    fun fetchMyVideos(
+        accessToken: String,
+        onSuccess: (List<ManageVideo>) -> Unit,
+        onFailure: (String) -> Unit
+    ): Call {
+        val request = Request.Builder()
+            .url(MY_VIDEOS_URL)
+            .get()
+            .addHeader("Authorization", "Bearer $accessToken")
+            .build()
+
+        val call = httpClient.newCall(request)
+        call.enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                onFailure(e.message ?: "网络请求失败")
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                val responseBody = response.body?.string() ?: ""
+                if (response.isSuccessful) {
+                    try {
+                        val list = parseVideoList(responseBody)
+                        onSuccess(list)
+                    } catch (e: Exception) {
+                        onFailure("解析失败: ${e.message}")
+                    }
+                } else {
+                    onFailure("请求失败: ${response.code}")
+                }
+            }
+        })
+        return call
+    }
+
+    private fun parseVideoList(jsonStr: String): List<ManageVideo> {
+        val list = mutableListOf<ManageVideo>()
+        val jsonArray = org.json.JSONArray(jsonStr)
+        for (i in 0 until jsonArray.length()) {
+            val obj = jsonArray.getJSONObject(i)
+            list.add(
+                ManageVideo(
+                    id = obj.optInt("id", 0),
+                    name = obj.optString("name", ""),
+                    cover = obj.optString("cover", ""),
+                    description = obj.optString("description", ""),
+                    link = obj.optString("link", ""),
+                    stock = obj.optInt("stock", 0)
+                )
+            )
+        }
+        return list
+    }
+
+    fun fetchMyShareCodes(
+        accessToken: String,
+        onSuccess: (List<ManageShareCode>) -> Unit,
+        onFailure: (String) -> Unit
+    ): Call {
+        val request = Request.Builder()
+            .url(MY_GIFTS_URL)
+            .get()
+            .addHeader("Authorization", "Bearer $accessToken")
+            .build()
+
+        val call = httpClient.newCall(request)
+        call.enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                onFailure(e.message ?: "网络请求失败")
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                val responseBody = response.body?.string() ?: ""
+                if (response.isSuccessful) {
+                    try {
+                        val list = parseShareCodeList(responseBody)
+                        onSuccess(list)
+                    } catch (e: Exception) {
+                        onFailure("解析失败: ${e.message}")
+                    }
+                } else {
+                    onFailure("请求失败: ${response.code}")
+                }
+            }
+        })
+        return call
+    }
+
+    private fun parseShareCodeList(jsonStr: String): List<ManageShareCode> {
+        val list = mutableListOf<ManageShareCode>()
+        val jsonArray = org.json.JSONArray(jsonStr)
+        for (i in 0 until jsonArray.length()) {
+            val obj = jsonArray.getJSONObject(i)
+            list.add(
+                ManageShareCode(
+                    id = obj.optInt("id", 0),
+                    name = obj.optString("name", ""),
+                    cover = obj.optString("cover", ""),
+                    description = obj.optString("description", ""),
+                    stock = obj.optInt("stock", 0),
+                    first = obj.optString("first", ""),
+                    grid = obj.optInt("grid", 0)
+                )
+            )
+        }
+        return list
+    }
+
+    fun fetchGiftCategories(
+        onSuccess: (List<CategoryItem>) -> Unit,
+        onFailure: (String) -> Unit
+    ): Call {
+        val request = Request.Builder()
+            .url(GIFT_GROUPS_URL)
+            .get()
+            .build()
+
+        val call = httpClient.newCall(request)
+        call.enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                onFailure(e.message ?: "网络请求失败")
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                val responseBody = response.body?.string() ?: ""
+                if (response.isSuccessful) {
+                    try {
+                        val list = parseCategoryList(responseBody)
+                        onSuccess(list)
+                    } catch (e: Exception) {
+                        onFailure("解析失败: ${e.message}")
+                    }
+                } else {
+                    onFailure("请求失败: ${response.code}")
+                }
+            }
+        })
+        return call
+    }
+
+    private fun parseCategoryList(jsonStr: String): List<CategoryItem> {
+        val list = mutableListOf<CategoryItem>()
+        val jsonArray = org.json.JSONArray(jsonStr)
+        for (i in 0 until jsonArray.length()) {
+            val obj = jsonArray.getJSONObject(i)
+            list.add(
+                CategoryItem(
+                    id = obj.optInt("id", 0),
+                    name = obj.optString("name", "")
+                )
+            )
+        }
+        return list
+    }
+
+    fun fetchShareCodeDetail(
+        accessToken: String,
+        giftId: Int,
+        onSuccess: (ShareCodeDetail) -> Unit,
+        onFailure: (String) -> Unit
+    ): Call {
+        val request = Request.Builder()
+            .url("$GIFT_DETAIL_URL?id=$giftId")
+            .get()
+            .addHeader("Authorization", "Bearer $accessToken")
+            .build()
+
+        val call = httpClient.newCall(request)
+        call.enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                onFailure(e.message ?: "网络请求失败")
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                val responseBody = response.body?.string() ?: ""
+                if (response.isSuccessful) {
+                    try {
+                        val obj = org.json.JSONObject(responseBody)
+                        val codesArray = obj.optJSONArray("codes")
+                        val codes = mutableListOf<String>()
+                        if (codesArray != null) {
+                            for (i in 0 until codesArray.length()) {
+                                codes.add(codesArray.getString(i))
+                            }
+                        }
+                        val detail = ShareCodeDetail(
+                            id = obj.optInt("id", 0),
+                            name = obj.optString("name", ""),
+                            cover = obj.optString("cover", ""),
+                            description = obj.optString("description", ""),
+                            stock = obj.optInt("stock", 0),
+                            grid = obj.optInt("grid", 0),
+                            codes = codes
+                        )
+                        onSuccess(detail)
+                    } catch (e: Exception) {
+                        onFailure("解析失败: ${e.message}")
+                    }
+                } else {
+                    onFailure("请求失败: ${response.code}")
+                }
+            }
+        })
+        return call
+    }
+
+    fun updateShareCodeGroup(
+        accessToken: String,
+        giftId: Int,
+        groupId: Int,
+        onSuccess: () -> Unit,
+        onFailure: (String) -> Unit
+    ): Call {
+        val jsonBody = org.json.JSONObject()
+        jsonBody.put("id", giftId)
+        jsonBody.put("grid", groupId)
+
+        val body = jsonBody.toString().toRequestBody(JSON_MEDIA_TYPE)
+        val request = Request.Builder()
+            .url(GIFT_UPDATE_GROUP_URL)
+            .addHeader("Authorization", "Bearer $accessToken")
+            .post(body)
+            .build()
+
+        val call = httpClient.newCall(request)
+        call.enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                onFailure(e.message ?: "网络请求失败")
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                if (response.isSuccessful) {
+                    onSuccess()
+                } else {
+                    onFailure("请求失败: ${response.code}")
+                }
+            }
+        })
+        return call
+    }
+
+    fun updateShareCodeDescription(
+        accessToken: String,
+        giftId: Int,
+        description: String,
+        onSuccess: () -> Unit,
+        onFailure: (String) -> Unit
+    ): Call {
+        val jsonBody = org.json.JSONObject()
+        jsonBody.put("id", giftId)
+        jsonBody.put("description", description)
+
+        val body = jsonBody.toString().toRequestBody(JSON_MEDIA_TYPE)
+        val request = Request.Builder()
+            .url(GIFT_UPDATE_DESC_URL)
+            .addHeader("Authorization", "Bearer $accessToken")
+            .post(body)
+            .build()
+
+        val call = httpClient.newCall(request)
+        call.enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                onFailure(e.message ?: "网络请求失败")
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                if (response.isSuccessful) {
+                    onSuccess()
+                } else {
+                    onFailure("请求失败: ${response.code}")
+                }
+            }
+        })
+        return call
+    }
+
+    fun addShareCodes(
+        accessToken: String,
+        giftId: Int,
+        codes: String,
+        onSuccess: () -> Unit,
+        onFailure: (String) -> Unit
+    ): Call {
+        val jsonBody = org.json.JSONObject()
+        jsonBody.put("id", giftId)
+        jsonBody.put("codes", codes)
+
+        val body = jsonBody.toString().toRequestBody(JSON_MEDIA_TYPE)
+        val request = Request.Builder()
+            .url(GIFT_ADD_CODES_URL)
+            .addHeader("Authorization", "Bearer $accessToken")
+            .post(body)
+            .build()
+
+        val call = httpClient.newCall(request)
+        call.enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                onFailure(e.message ?: "网络请求失败")
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                if (response.isSuccessful) {
+                    onSuccess()
+                } else {
+                    onFailure("请求失败: ${response.code}")
+                }
+            }
+        })
+        return call
+    }
+
+    fun deleteShareCode(
+        accessToken: String,
+        giftId: Int,
+        onSuccess: () -> Unit,
+        onFailure: (String) -> Unit
+    ): Call {
+        val request = Request.Builder()
+            .url("$GIFT_DELETE_URL?id=$giftId")
+            .get()
+            .addHeader("Authorization", "Bearer $accessToken")
+            .build()
+
+        val call = httpClient.newCall(request)
+        call.enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                onFailure(e.message ?: "网络请求失败")
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                if (response.isSuccessful) {
+                    onSuccess()
+                } else {
+                    onFailure("请求失败: ${response.code}")
+                }
+            }
+        })
+        return call
+    }
+
+    fun deleteSingleShareCode(
+        accessToken: String,
+        giftId: Int,
+        code: String,
+        onSuccess: () -> Unit,
+        onFailure: (String) -> Unit
+    ): Call {
+        val jsonBody = org.json.JSONObject()
+        jsonBody.put("id", giftId)
+        jsonBody.put("code", code)
+
+        val body = jsonBody.toString().toRequestBody(JSON_MEDIA_TYPE)
+        val request = Request.Builder()
+            .url(GIFT_DELETE_CODE_URL)
+            .addHeader("Authorization", "Bearer $accessToken")
+            .post(body)
+            .build()
+
+        val call = httpClient.newCall(request)
+        call.enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                onFailure(e.message ?: "网络请求失败")
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                if (response.isSuccessful) {
+                    onSuccess()
+                } else {
+                    onFailure("请求失败: ${response.code}")
+                }
+            }
+        })
+        return call
+    }
+
+    fun fetchUserRepo(
+        accessToken: String,
+        onSuccess: (UserRepoResponse) -> Unit,
+        onFailure: (String) -> Unit
+    ): Call {
+        val request = Request.Builder()
+            .url(USER_REPOS_URL)
+            .get()
+            .addHeader("Authorization", "Bearer $accessToken")
+            .build()
+
+        val call = httpClient.newCall(request)
+        call.enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                onFailure(e.message ?: "网络请求失败")
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                val responseBody = response.body?.string() ?: ""
+                if (response.isSuccessful) {
+                    try {
+                        val result = parseUserRepoResponse(responseBody)
+                        onSuccess(result)
+                    } catch (e: Exception) {
+                        onFailure("解析失败: ${e.message}")
+                    }
+                } else {
+                    onFailure("请求失败: ${response.code}")
+                }
+            }
+        })
+        return call
+    }
+
+    private fun parseUserRepoResponse(jsonStr: String): UserRepoResponse {
+        val obj = org.json.JSONObject(jsonStr)
+        val success = obj.optBoolean("success", false)
+        val userId = obj.optString("userId", "")
+
+        var repoInfo: RepoInfo? = null
+        val repoObj = obj.optJSONObject("repo")
+        if (repoObj != null) {
+            repoInfo = RepoInfo(
+                repoId = repoObj.optInt("repo_id", 0),
+                name = repoObj.optString("name", ""),
+                description = repoObj.optString("description", ""),
+                totalSpace = repoObj.optString("total_space", ""),
+                totalSpaceKb = repoObj.optInt("total_space_kb", 0),
+                usedSpace = repoObj.optString("used_space", ""),
+                usedSpaceKb = repoObj.optInt("used_space_kb", 0),
+                fileCount = repoObj.optInt("file_count", 0),
+                createdAt = repoObj.optString("created_at", ""),
+                likes = repoObj.optInt("likes", 0)
+            )
+        }
+
+        val files = mutableListOf<ManageFile>()
+        val filesArray = obj.optJSONArray("files")
+        if (filesArray != null) {
+            for (i in 0 until filesArray.length()) {
+                val fileObj = filesArray.getJSONObject(i)
+                files.add(
+                    ManageFile(
+                        fileId = fileObj.optInt("file_id", 0),
+                        fileSize = fileObj.optString("file_size", ""),
+                        fileSizeKb = fileObj.optInt("file_size_kb", 0),
+                        fileType = fileObj.optString("file_type", ""),
+                        originalName = fileObj.optString("original_name", ""),
+                        status = fileObj.optInt("status", 0),
+                        uploadTime = fileObj.optString("upload_time", "")
+                    )
+                )
+            }
+        }
+
+        return UserRepoResponse(success, repoInfo, files, userId)
+    }
+
+    fun updateRepo(
+        accessToken: String,
+        repoId: Int,
+        name: String,
+        description: String,
+        onSuccess: () -> Unit,
+        onFailure: (String) -> Unit
+    ): Call {
+        val jsonBody = org.json.JSONObject()
+        jsonBody.put("id", repoId)
+        jsonBody.put("name", name)
+        jsonBody.put("description", description)
+
+        val body = jsonBody.toString().toRequestBody(JSON_MEDIA_TYPE)
+        val request = Request.Builder()
+            .url(REPOS_UPDATE_URL)
+            .addHeader("Authorization", "Bearer $accessToken")
+            .post(body)
+            .build()
+
+        val call = httpClient.newCall(request)
+        call.enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                onFailure(e.message ?: "网络请求失败")
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                if (response.isSuccessful) {
+                    onSuccess()
+                } else {
+                    onFailure("请求失败: ${response.code}")
+                }
+            }
+        })
+        return call
+    }
+
+    fun expandStorage(
+        accessToken: String,
+        onSuccess: () -> Unit,
+        onFailure: (String) -> Unit
+    ): Call {
+        val request = Request.Builder()
+            .url(EXPAND_STORAGE_URL)
+            .get()
+            .addHeader("Authorization", "Bearer $accessToken")
+            .build()
+
+        val call = httpClient.newCall(request)
+        call.enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                onFailure(e.message ?: "网络请求失败")
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                if (response.isSuccessful) {
+                    onSuccess()
+                } else {
+                    onFailure("请求失败: ${response.code}")
+                }
+            }
+        })
+        return call
     }
 }

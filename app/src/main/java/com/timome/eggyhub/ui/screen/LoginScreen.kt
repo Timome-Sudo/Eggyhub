@@ -204,7 +204,7 @@ fun LoginScreen(
 
                 // 登录成功后，立即获取用户资料
                 ApiService.fetchUserProfile(
-                    accessToken = response.accessToken,
+                    userId = response.user.id,
                     onSuccess = { profile ->
                         Handler(Looper.getMainLooper()).post {
                             isLoading = false
@@ -212,12 +212,12 @@ fun LoginScreen(
                             coroutineScope.launch {
                                 onLoginSuccess(
                                     response.accessToken,
-                                    profile.username.ifBlank { response.user.username },
-                                    profile.email.ifBlank { response.user.email },
+                                    response.user.username,
+                                    response.user.email,
                                     passwordInput,
-                                    if (profile.id > 0) profile.id else response.user.id,
-                                    profile.role.ifBlank { response.user.role },
-                                    profile.sponser.ifBlank { response.user.sponser },
+                                    response.user.id,
+                                    response.user.role,
+                                    response.user.sponser,
                                     profile.avatar,
                                     profile.contact,
                                     profile.description,

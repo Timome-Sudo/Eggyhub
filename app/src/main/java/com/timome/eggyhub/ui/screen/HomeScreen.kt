@@ -115,6 +115,14 @@ fun HomeScreen(
     var showPublishShareCode by remember { mutableStateOf(false) }
     var showPublishFile by remember { mutableStateOf(false) }
 
+    // 内容管理相关
+    var showContentManage by remember { mutableStateOf(false) }
+    var showShareCodeDetail by remember { mutableStateOf(false) }
+    var currentShareCodeId by remember { mutableIntStateOf(0) }
+    var showFilePreview by remember { mutableStateOf(false) }
+    var previewUrl by remember { mutableStateOf("") }
+    var previewFileName by remember { mutableStateOf("") }
+
     val context = LocalContext.current
 
     // ========== 圆形扩散动画状态 ==========
@@ -129,7 +137,6 @@ fun HomeScreen(
     var containerAbsLeft by remember { mutableFloatStateOf(0f) }
     var containerAbsTop by remember { mutableFloatStateOf(0f) }
     var containerWidth by remember { mutableFloatStateOf(0f) }
-    var containerHeight by remember { mutableFloatStateOf(0f) }
 
     // 手势滑动累积距离（用于判断是否触发页面切换）
     var dragAccumulator by remember { mutableFloatStateOf(0f) }
@@ -289,6 +296,39 @@ fun HomeScreen(
         return
     }
 
+    // 内容管理页面
+    if (showContentManage) {
+        ContentManageScreen(
+            accessToken = accessToken,
+            onBack = { showContentManage = false },
+            onShareCodeClick = { id ->
+                currentShareCodeId = id
+                showShareCodeDetail = true
+            }
+        )
+        return
+    }
+
+    // 分享码详情设置页面
+    if (showShareCodeDetail) {
+        ShareCodeDetailScreen(
+            accessToken = accessToken,
+            giftId = currentShareCodeId,
+            onBack = { showShareCodeDetail = false }
+        )
+        return
+    }
+
+    // 文件预览页面
+    if (showFilePreview) {
+        FilePreviewScreen(
+            url = previewUrl,
+            fileName = previewFileName,
+            onBack = { showFilePreview = false }
+        )
+        return
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -306,7 +346,6 @@ fun HomeScreen(
                     containerAbsLeft = positionInRoot.x
                     containerAbsTop = positionInRoot.y
                     containerWidth = layoutCoordinates.size.width.toFloat()
-                    containerHeight = layoutCoordinates.size.height.toFloat()
                 }
                 // 手势检测：左右滑动切换页面
                 .pointerInput(Unit) {
@@ -391,7 +430,8 @@ fun HomeScreen(
                                 }
                             },
                             onAboutClick = { showAbout = true },
-                            onAccountSettingsClick = { showAccountSettings = true }
+                            onAccountSettingsClick = { showAccountSettings = true },
+                            onContentManageClick = { showContentManage = true }
                         )
                     }
                 }
@@ -551,8 +591,20 @@ fun HomeScreen(
             initialSize = revealInitialSize,
             color = revealColor,
             containerWidth = containerWidth,
-            containerHeight = containerHeight,
             durationMillis = 550,
+            onExpandFinished = {
+                // 放大完成后根据点击的图标索引执行对应操作
+                when (clickedIconIndex) {
+                    6 -> {
+                        // 官方网址 - 打开浏览器
+                        val intent = android.content.Intent(
+                            android.content.Intent.ACTION_VIEW,
+                            android.net.Uri.parse("https://eggyhub.top")
+                        )
+                        context.startActivity(intent)
+                    }
+                }
+            },
             onFinished = {
                 clickedIconIndex = null
                 revealVisible = false

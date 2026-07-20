@@ -81,6 +81,7 @@ fun ProfilePageContent(
     onLogoutClick: () -> Unit,
     onAboutClick: () -> Unit = {},
     onAccountSettingsClick: () -> Unit = {},
+    onContentManageClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -287,6 +288,37 @@ fun ProfilePageContent(
         }
 
         Spacer(modifier = Modifier.height(8.dp))
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onContentManageClick),
+            shape = MaterialTheme.shapes.medium,
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.secondaryContainer
+            )
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "内容管理",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    text = "文章 · 视频 · 分享码 · 文件",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+                    fontSize = 12.sp
+                )
+            }
+        }
 
         val settingsItems = listOf(
             "账户设置" to onAccountSettingsClick,
