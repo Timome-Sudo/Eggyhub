@@ -10,6 +10,7 @@ env:
   KEYSTORE_PWD: 114514
   KEY_ALIAS: key0
   KEY_PWD: 114514
+  BUILD_TOOLS_VERSION: 35.0.0
   TZ: Asia/Shanghai
 
 on:
@@ -100,7 +101,7 @@ jobs:
           echo "===== Release目录文件 ====="
           ls -la ${{ env.APK_DIR }} 2>/dev/null || echo "release目录不存在"
 
-      - name: 校验原生未签名APK存在
+      - name: 校验原生未签名APK与密钥文件存在
         if: env.EXIT_CODE == '0'
         run: |
           SRC=${{ env.APK_DIR }}/${{ env.ORIG_APK }}
@@ -109,9 +110,8 @@ jobs:
             ls ${{ env.APK_DIR }}/*.apk 2>/dev/null
             exit 1
           fi
-          # 校验密钥文件存在
           if [ ! -f ${{ env.KEYSTORE_FILE }} ]; then
-            echo "错误：根目录签名文件 prekey 不存在！"
+            echo "错误：仓库根目录缺少签名文件 prekey"
             exit 1
           fi
 
@@ -123,24 +123,31 @@ jobs:
           mv "$SRC" "$DST"
           echo "重命名完成：$SRC → $DST"
 
-      - name: 使用prekey签名APK（apksigner）
+      - name: APK对齐 + jarsigner签名（兼容修复方案）
         if: env.EXIT_CODE == '0'
         run: |
-          # 定位apksigner工具
-          APKSIGNER=${{ env.ANDROID_HOME }}/build-tools/*/apksigner
-          UNSIGNED_APK=${{ env.APK_DIR }}/${{ env.RENAME_APK }}
+          BUILD_TOOLS=${{ env.ANDROID_HOME }}/build-tools/${{ env.BUILD_TOOLS_VERSION }}
+          ZIPALIGN=$BUILD_TOOLS/zipalign
+          UNSIGNED=${{ env.APK_DIR }}/${{ env.RENAME_APK }}
+          ALIGN_TMP=${{ env.APK_DIR }}/align-tmp.apk
           SIGNED_OUTPUT=${{ env.APK_DIR }}/${{ env.SIGNED_APK }}
 
-          # 执行签名命令
-          $APKSIGNER sign \
-            --ks ${{ env.KEYSTORE_FILE }} \
-            --ks-pass pass:${{ env.KEYSTORE_PWD }} \
-            --key-pass pass:${{ env.KEY_PWD }} \
-            --ks-key-alias ${{ env.KEY_ALIAS }} \
-            --out $SIGNED_OUTPUT \
-            $UNSIGNED_APK
+          # 4字节对齐
+          $ZIPALIGN -f 4 "$UNSIGNED" "$ALIGN_TMP"
+          
+          # jarsigner签名
+          jarsigner \
+            -keystore ${{ env.KEYSTORE_FILE }} \
+            -storepass ${{ env.KEYSTORE_PWD }} \
+            -keypass ${{ env.KEY_PWD }} \
+            -sigalg SHA256withRSA \
+            -digestalg SHA-256 \
+            "$ALIGN_TMP" \
+            ${{ env.KEY_ALIAS }}
 
-          echo "签名完成，输出文件：$SIGNED_OUTPUT"
+          # 输出最终签名包
+          mv "$ALIGN_TMP" "$SIGNED_OUTPUT"
+          echo "✅ 签名完成，成品：$SIGNED_OUTPUT"
           ls -la ${{ env.APK_DIR }}
 
       - name: Upload 未签名备份APK
