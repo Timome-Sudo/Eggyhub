@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.activity.compose.BackHandler
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
@@ -174,6 +175,34 @@ fun HomeScreen(
         }
     }
 
+    // 返回键处理 - 优先关闭各种弹窗和子界面
+    val hasOverlay = showAbout || showDevMode || showAccountSettings || showChangePassword ||
+            showCreateArticle || showPublishVideo || showPublishShareCode ||
+            showPublishFile || showContentManage || showShareCodeDetail ||
+            showFilePreview || revealVisible || isFabExpanded
+
+    BackHandler(enabled = hasOverlay) {
+        when {
+            showFilePreview -> showFilePreview = false
+            showShareCodeDetail -> showShareCodeDetail = false
+            showContentManage -> showContentManage = false
+            showPublishFile -> showPublishFile = false
+            showPublishShareCode -> showPublishShareCode = false
+            showPublishVideo -> showPublishVideo = false
+            showCreateArticle -> showCreateArticle = false
+            showChangePassword -> showChangePassword = false
+            showAccountSettings -> showAccountSettings = false
+            showDevMode -> showDevMode = false
+            showAbout -> showAbout = false
+            revealVisible -> {
+                clickedIconIndex = null
+                showRevealContent = false
+                revealVisible = false
+            }
+            isFabExpanded -> isFabExpanded = false
+        }
+    }
+
     // 关于应用页面
     if (showAbout) {
         AboutScreen(
@@ -292,6 +321,7 @@ fun HomeScreen(
     if (showPublishFile) {
         PublishFileScreen(
             accessToken = accessToken,
+            isGuestMode = isGuestMode,
             onBack = { showPublishFile = false }
         )
         return
@@ -595,20 +625,15 @@ fun HomeScreen(
             durationMillis = 1000,
             showContent = showRevealContent,
             onExpandFinished = {
-                // 放大完成后根据点击的图标索引执行对应操作
-                when (clickedIconIndex) {
-                    6 -> {
-                        // 官方网址 - 直接打开浏览器，不显示新界面
-                        val intent = android.content.Intent(
-                            android.content.Intent.ACTION_VIEW,
-                            android.net.Uri.parse("https://eggyhub.top")
-                        )
-                        context.startActivity(intent)
-                    }
-                    else -> {
-                        // 其他界面 - 显示内容（淡入）
-                        showRevealContent = true
-                    }
+                // 放大完成后显示内容（淡入）
+                showRevealContent = true
+                // 官方网址 - 同时打开浏览器
+                if (clickedIconIndex == 6) {
+                    val intent = android.content.Intent(
+                        android.content.Intent.ACTION_VIEW,
+                        android.net.Uri.parse("https://eggyhub.top")
+                    )
+                    context.startActivity(intent)
                 }
             },
             onBackClick = {

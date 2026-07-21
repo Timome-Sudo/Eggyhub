@@ -1,7 +1,8 @@
 package com.timome.eggyhub.data
 
 import android.content.Context
-import android.util.Base64
+import kotlin.coroutines.resume
+import okhttp3.Call
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
@@ -101,17 +102,9 @@ class AuthManager(context: Context) {
             decryptPassword(encrypted)
         }
 
-    private fun encryptPassword(password: String): String {
-        return Base64.encodeToString(password.toByteArray(), Base64.DEFAULT)
-    }
+    private fun encryptPassword(password: String): String = CryptoHelper.encrypt(password)
 
-    private fun decryptPassword(encrypted: String): String {
-        return if (encrypted.isNotBlank()) {
-            String(Base64.decode(encrypted, Base64.DEFAULT))
-        } else {
-            ""
-        }
-    }
+    private fun decryptPassword(encrypted: String): String = CryptoHelper.decrypt(encrypted)
 
     /** 登录成功时保存所有相关信息 */
     suspend fun loginWithUser(
@@ -196,33 +189,30 @@ class AuthManager(context: Context) {
         val token = accessToken.first()
         if (token.isBlank()) return false
 
-        return kotlinx.coroutines.suspendCancellableCoroutine { continuation ->
-            val call = ApiService.fetchCurrentUserInfo(
+        val profile = kotlinx.coroutines.suspendCancellableCoroutine<ApiService.UserProfile?> { continuation ->
+            var call: Call? = null
+            call = ApiService.fetchCurrentUserInfo(
                 accessToken = token,
-                onSuccess = { profile ->
-                    kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                        dataStore.edit { preferences ->
-                            preferences[USERNAME] = profile.username
-                            preferences[EMAIL] = profile.email
-                            preferences[ROLE] = profile.role
-                            preferences[SPONSER] = profile.sponser
-                            preferences[AVATAR] = profile.avatar
-                            preferences[CONTACT] = profile.contact
-                            preferences[DESCRIPTION] = profile.description
-                            preferences[EGGYID] = profile.eggyid
-                            preferences[LAST_REFRESH_TIME] = System.currentTimeMillis()
-                        }
-                        continuation.resumeWith(Result.success(true))
-                    }
-                },
-                onFailure = {
-                    continuation.resumeWith(Result.success(false))
-                }
+                onSuccess = { continuation.resume(it) },
+                onFailure = { continuation.resume(null) }
             )
-            continuation.invokeOnCancellation {
-                call.cancel()
-            }
+            continuation.invokeOnCancellation { call?.cancel() }
         }
+
+        if (profile == null) return false
+
+        dataStore.edit { preferences ->
+            preferences[USERNAME] = profile.username
+            preferences[EMAIL] = profile.email
+            preferences[ROLE] = profile.role
+            preferences[SPONSER] = profile.sponser
+            preferences[AVATAR] = profile.avatar
+            preferences[CONTACT] = profile.contact
+            preferences[DESCRIPTION] = profile.description
+            preferences[EGGYID] = profile.eggyid
+            preferences[LAST_REFRESH_TIME] = System.currentTimeMillis()
+        }
+        return true
     }
 
     /**

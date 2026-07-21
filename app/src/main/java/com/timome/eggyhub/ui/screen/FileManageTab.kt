@@ -1,15 +1,11 @@
 package com.timome.eggyhub.ui.screen
 
-import android.app.DownloadManager
-import android.content.Context
-import android.net.Uri
 import android.os.Environment
 import android.os.Handler
 import android.os.Looper
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -25,15 +21,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.TextSnippet
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -55,7 +48,6 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Constraints
@@ -63,6 +55,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import com.timome.eggyhub.data.ApiService
+import com.timome.eggyhub.ui.component.DownloadProgressDialog
 import com.timome.eggyhub.ui.component.WaitingDialog
 import kotlin.math.roundToInt
 
@@ -81,6 +74,12 @@ fun FileManageTab(
     var showExpandDialog by remember { mutableStateOf(false) }
     var showWaiting by remember { mutableStateOf(false) }
     var waitingText by remember { mutableStateOf("") }
+    var showDownloadDialog by remember { mutableStateOf(false) }
+    var downloadFileName by remember { mutableStateOf("") }
+    var downloadedBytes by remember { mutableStateOf(0L) }
+    var downloadTotalBytes by remember { mutableStateOf(0L) }
+    var downloadSpeed by remember { mutableStateOf(0.0) }
+    var downloadStatus by remember { mutableStateOf("等待下载") }
 
     fun loadData() {
         isLoading = true
@@ -100,6 +99,55 @@ fun FileManageTab(
                 }
             }
         )
+    }
+
+    fun startDownload(url: String, fileName: String, totalSize: Long) {
+        downloadFileName = fileName
+        downloadedBytes = 0L
+        downloadTotalBytes = totalSize
+        downloadSpeed = 0.0
+        downloadStatus = "等待下载"
+        showDownloadDialog = true
+
+        try {
+            val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+            val destFile = java.io.File(downloadsDir, fileName)
+
+            ApiService.downloadFile(
+                accessToken = accessToken,
+                url = url,
+                destFile = destFile,
+                onSuccess = {
+                    Handler(Looper.getMainLooper()).post {
+                        downloadStatus = "下载完成"
+                        downloadedBytes = downloadTotalBytes
+                        Toast.makeText(context, "下载完成: $fileName", Toast.LENGTH_SHORT).show()
+                        android.os.Handler(Looper.getMainLooper()).postDelayed({
+                            showDownloadDialog = false
+                        }, 1000)
+                    }
+                },
+                onFailure = { error ->
+                    Handler(Looper.getMainLooper()).post {
+                        showDownloadDialog = false
+                        Toast.makeText(context, error, Toast.LENGTH_SHORT).show()
+                    }
+                },
+                onProgress = { downloaded, total, speed ->
+                    Handler(Looper.getMainLooper()).post {
+                        downloadStatus = "正在下载"
+                        downloadedBytes = downloaded
+                        if (total > 0) {
+                            downloadTotalBytes = total
+                        }
+                        downloadSpeed = speed
+                    }
+                }
+            )
+        } catch (e: Exception) {
+            showDownloadDialog = false
+            Toast.makeText(context, "下载失败: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
     }
 
     LaunchedEffect(Unit) {
@@ -252,8 +300,8 @@ fun FileManageTab(
                         file = file,
                         accessToken = accessToken,
                         onPreviewClick = { url, type -> onPreviewClick(url, type) },
-                        onDownloadClick = { url, name ->
-                            downloadFile(context, url, name, accessToken)
+                        onDownloadClick = { url, name, size ->
+                            startDownload(url, name, size)
                         }
                     )
                 }
@@ -422,6 +470,14 @@ fun FileManageTab(
             message = waitingText
         )
     }
+
+    DownloadProgressDialog(
+        show = showDownloadDialog,
+        downloadedBytes = downloadedBytes,
+        totalBytes = downloadTotalBytes,
+        speedBytesPerSec = downloadSpeed,
+        status = downloadStatus
+    )
 }
 
 fun formatFileSize(bytes: Long): String {
@@ -437,38 +493,18 @@ fun Double.roundTo(decimals: Int): Double {
     return (this * factor).roundToInt() / factor
 }
 
-private fun downloadFile(
-    context: Context,
-    url: String,
-    fileName: String,
-    accessToken: String
-) {
-    try {
-        val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-        val request = DownloadManager.Request(Uri.parse(url))
-        request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
-        request.setTitle(fileName)
-        request.setDescription("正在下载...")
-        request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-        request.addRequestHeader("Authorization", "Bearer $accessToken")
-        downloadManager.enqueue(request)
-        Toast.makeText(context, "开始下载: $fileName", Toast.LENGTH_SHORT).show()
-    } catch (e: Exception) {
-        Toast.makeText(context, "下载失败: ${e.message}", Toast.LENGTH_SHORT).show()
-    }
-}
-
 @Composable
 private fun FileManageItem(
     file: ApiService.ManageFile,
     accessToken: String,
     onPreviewClick: (String, String) -> Unit,
-    onDownloadClick: (String, String) -> Unit,
+    onDownloadClick: (String, String, Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val fileIcon = getFileIcon(file.fileType)
-    val previewUrl = "https://eggyhub.top/${file.fileType}/${file.fileId}"
-    val downloadUrl = "https://eggyhub.top/api/files/${file.fileId}/download"
+    val previewUrl = "https://eggyhub.top/api/repos/${file.repoId}/${file.originalName}"
+    val downloadUrl = "https://eggyhub.top/api/repos/${file.repoId}/${file.originalName}?download=true"
+    val fileSizeBytes = file.fileSizeKb * 1024L
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -536,6 +572,10 @@ private fun FileManageItem(
             }
         }
     }
+}
+
+private fun onDownloadClick(p1: String, p2: String) {
+    TODO("Not yet implemented")
 }
 
 @Composable

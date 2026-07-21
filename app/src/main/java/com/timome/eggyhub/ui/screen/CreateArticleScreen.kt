@@ -19,11 +19,14 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Help
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -33,6 +36,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -55,21 +59,31 @@ fun CreateArticleScreen(
     val context = LocalContext.current
     val mainHandler = Handler(Looper.getMainLooper())
 
-    val totalSteps = 2
-    var currentStep by remember { mutableStateOf(1) }
+    val totalSteps = 3
+    var currentStep by rememberSaveable { mutableStateOf(1) }
 
-    var title by remember { mutableStateOf("") }
-    var content by remember { mutableStateOf("") }
+    var title by rememberSaveable { mutableStateOf("") }
+    var content by rememberSaveable { mutableStateOf("") }
 
-    var titleError by remember { mutableStateOf<String?>(null) }
-    var contentError by remember { mutableStateOf<String?>(null) }
-    var isSubmitting by remember { mutableStateOf(false) }
+    val categories = listOf(
+        "默认分类" to 1,
+        "教程" to 2,
+        "资源" to 3,
+        "交流" to 4
+    )
+    var selectedCategory by rememberSaveable { mutableStateOf("默认分类") }
+    var selectedGroup by rememberSaveable { mutableStateOf(1) }
+    var categoryError by rememberSaveable { mutableStateOf<String?>(null) }
 
-    var showSuccessDialog by remember { mutableStateOf(false) }
-    var showErrorDialog by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf("") }
+    var titleError by rememberSaveable { mutableStateOf<String?>(null) }
+    var contentError by rememberSaveable { mutableStateOf<String?>(null) }
+    var isSubmitting by rememberSaveable { mutableStateOf(false) }
 
-    var showHelpDialog by remember { mutableStateOf(false) }
+    var showSuccessDialog by rememberSaveable { mutableStateOf(false) }
+    var showErrorDialog by rememberSaveable { mutableStateOf(false) }
+    var errorMessage by rememberSaveable { mutableStateOf("") }
+
+    var showHelpDialog by rememberSaveable { mutableStateOf(false) }
 
     fun validateCurrentStep(): Boolean {
         return when (currentStep) {
@@ -83,6 +97,15 @@ fun CreateArticleScreen(
                 }
             }
             2 -> {
+                if (selectedCategory.isBlank()) {
+                    categoryError = "请选择分类"
+                    false
+                } else {
+                    categoryError = null
+                    true
+                }
+            }
+            3 -> {
                 if (content.isBlank()) {
                     contentError = "请输入文章内容"
                     false
@@ -104,7 +127,7 @@ fun CreateArticleScreen(
             accessToken = accessToken,
             title = title.trim(),
             content = content.trim(),
-            group = 1,
+            group = selectedGroup,
             onSuccess = { msg ->
                 mainHandler.post {
                     isSubmitting = false
@@ -186,7 +209,7 @@ fun CreateArticleScreen(
                     StepProgressBar(
                         currentStep = currentStep,
                         totalSteps = totalSteps,
-                        stepLabels = listOf("标题", "内容"),
+                        stepLabels = listOf("标题", "分类", "内容"),
                         modifier = Modifier.fillMaxWidth()
                     )
 
@@ -194,7 +217,8 @@ fun CreateArticleScreen(
 
                     val stepHint = when (currentStep) {
                         1 -> "请输入文章标题"
-                        2 -> "请输入文章内容"
+                        2 -> "请选择文章分类"
+                        3 -> "请输入文章内容"
                         else -> ""
                     }
                     Text(
@@ -235,6 +259,79 @@ fun CreateArticleScreen(
                             )
                         }
                         2 -> {
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                categories.forEach { (name, group) ->
+                                    val isSelected = selectedGroup == group
+                                    Card(
+                                        onClick = {
+                                            selectedCategory = name
+                                            selectedGroup = group
+                                            categoryError = null
+                                        },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(12.dp),
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = if (isSelected) {
+                                                MaterialTheme.colorScheme.primaryContainer
+                                            } else {
+                                                MaterialTheme.colorScheme.surface
+                                            }
+                                        ),
+                                        border = if (isSelected) {
+                                            androidx.compose.foundation.BorderStroke(
+                                                2.dp,
+                                                MaterialTheme.colorScheme.primary
+                                            )
+                                        } else {
+                                            androidx.compose.foundation.BorderStroke(
+                                                1.dp,
+                                                MaterialTheme.colorScheme.outlineVariant
+                                            )
+                                        }
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(16.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            RadioButton(
+                                                selected = isSelected,
+                                                onClick = {
+                                                    selectedCategory = name
+                                                    selectedGroup = group
+                                                    categoryError = null
+                                                }
+                                            )
+                                            Spacer(modifier = Modifier.width(12.dp))
+                                            Text(
+                                                text = name,
+                                                style = MaterialTheme.typography.bodyLarge,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                                color = if (isSelected) {
+                                                    MaterialTheme.colorScheme.onPrimaryContainer
+                                                } else {
+                                                    MaterialTheme.colorScheme.onSurface
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            categoryError?.let {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = it,
+                                    color = MaterialTheme.colorScheme.error,
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                        }
+                        3 -> {
                             OutlinedTextField(
                                 value = content,
                                 onValueChange = {

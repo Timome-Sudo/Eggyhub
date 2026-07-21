@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.provider.Settings
 import android.view.Window
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.ActivityResultLauncher
@@ -199,24 +200,63 @@ fun EggyhubApp(
     val coroutineScope = rememberCoroutineScope()
 
     val context = androidx.compose.ui.platform.LocalContext.current
+    val activity = context as? ComponentActivity
+
+    // 双击退出相关状态
+    var backPressedTime by remember { mutableStateOf(0L) }
 
     // 用户信息定时刷新（每10分钟）
     LaunchedEffect(currentScreen, isLoggedIn) {
         if (currentScreen == AppScreen.HOME && isLoggedIn) {
             // 进入主页时先检查是否需要刷新
-            if (if (authManager.needsRefresh()) {
-                true
-            } else {
-                false
-            }
-            ) {
-                val refreshUserInfo = authManager.refreshUserInfo()
+            if (authManager.needsRefresh()) {
+                authManager.refreshUserInfo()
             }
             // 定时循环刷新
             while (true) {
                 kotlinx.coroutines.delay(AuthManager.REFRESH_INTERVAL_MS)
                 if (authManager.needsRefresh()) {
                     authManager.refreshUserInfo()
+                }
+            }
+        }
+    }
+
+    // 返回键处理
+    BackHandler(enabled = true) {
+        when (currentScreen) {
+            AppScreen.REGISTER -> {
+                currentScreen = AppScreen.LOGIN
+            }
+            AppScreen.FORGOT_PASSWORD -> {
+                currentScreen = AppScreen.LOGIN
+            }
+            AppScreen.HOME -> {
+                // 双击退出应用
+                val currentTime = System.currentTimeMillis()
+                if (currentTime - backPressedTime > 2000) {
+                    backPressedTime = currentTime
+                    android.widget.Toast.makeText(
+                        context,
+                        "再按一次退出应用",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                } else {
+                    activity?.finish()
+                }
+            }
+            else -> {
+                // 登录页直接退出
+                val currentTime = System.currentTimeMillis()
+                if (currentTime - backPressedTime > 2000) {
+                    backPressedTime = currentTime
+                    android.widget.Toast.makeText(
+                        context,
+                        "再按一次退出应用",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                } else {
+                    activity?.finish()
                 }
             }
         }

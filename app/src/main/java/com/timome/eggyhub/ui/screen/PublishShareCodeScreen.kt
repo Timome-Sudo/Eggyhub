@@ -38,6 +38,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -61,25 +62,25 @@ fun PublishShareCodeScreen(
     val mainHandler = Handler(Looper.getMainLooper())
 
     val totalSteps = 5
-    var currentStep by remember { mutableStateOf(1) }
+    var currentStep by rememberSaveable { mutableStateOf(1) }
 
-    var name by remember { mutableStateOf("") }
-    var firstCode by remember { mutableStateOf("") }
-    var description by remember { mutableStateOf("") }
-    var eggCodeQuantity by remember { mutableStateOf("1") }
+    var name by rememberSaveable { mutableStateOf("") }
+    var firstCode by rememberSaveable { mutableStateOf("") }
+    var description by rememberSaveable { mutableStateOf("") }
+    var eggCodeQuantity by rememberSaveable { mutableStateOf("1") }
     var imageUri by remember { mutableStateOf<Uri?>(null) }
-    var fileName by remember { mutableStateOf("") }
+    var fileName by rememberSaveable { mutableStateOf("") }
 
-    var nameError by remember { mutableStateOf<String?>(null) }
-    var firstCodeError by remember { mutableStateOf<String?>(null) }
-    var descriptionError by remember { mutableStateOf<String?>(null) }
-    var quantityError by remember { mutableStateOf<String?>(null) }
-    var imageError by remember { mutableStateOf<String?>(null) }
-    var isSubmitting by remember { mutableStateOf(false) }
+    var nameError by rememberSaveable { mutableStateOf<String?>(null) }
+    var firstCodeError by rememberSaveable { mutableStateOf<String?>(null) }
+    var descriptionError by rememberSaveable { mutableStateOf<String?>(null) }
+    var quantityError by rememberSaveable { mutableStateOf<String?>(null) }
+    var imageError by rememberSaveable { mutableStateOf<String?>(null) }
+    var isSubmitting by rememberSaveable { mutableStateOf(false) }
 
-    var showSuccessDialog by remember { mutableStateOf(false) }
-    var showErrorDialog by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf("") }
+    var showSuccessDialog by rememberSaveable { mutableStateOf(false) }
+    var showErrorDialog by rememberSaveable { mutableStateOf(false) }
+    var errorMessage by rememberSaveable { mutableStateOf("") }
 
     fun getFileName(context: android.content.Context, uri: Uri): String {
         var fileName: String? = null

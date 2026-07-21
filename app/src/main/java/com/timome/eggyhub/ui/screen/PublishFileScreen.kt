@@ -36,6 +36,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,27 +53,40 @@ import com.timome.eggyhub.data.ApiService
 @Composable
 fun PublishFileScreen(
     accessToken: String,
+    isGuestMode: Boolean = false,
     onBack: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val mainHandler = Handler(Looper.getMainLooper())
 
     val totalSteps = 2
-    var currentStep by remember { mutableStateOf(1) }
+    var currentStep by rememberSaveable { mutableStateOf(1) }
 
     var fileUri by remember { mutableStateOf<Uri?>(null) }
-    var fileName by remember { mutableStateOf("") }
-    var fileError by remember { mutableStateOf<String?>(null) }
-    var isSubmitting by remember { mutableStateOf(false) }
+    var fileName by rememberSaveable { mutableStateOf("") }
+    var fileSize by rememberSaveable { mutableStateOf(0L) }
+    var fileError by rememberSaveable { mutableStateOf<String?>(null) }
+    var isSubmitting by rememberSaveable { mutableStateOf(false) }
 
-    var uploadedBytes by remember { mutableStateOf(0L) }
-    var totalBytes by remember { mutableStateOf(0L) }
-    var uploadSpeed by remember { mutableStateOf(0.0) }
-    var uploadStatus by remember { mutableStateOf("等待上传") }
+    var uploadedBytes by rememberSaveable { mutableStateOf(0L) }
+    var totalBytes by rememberSaveable { mutableStateOf(0L) }
+    var uploadSpeed by rememberSaveable { mutableStateOf(0.0) }
+    var uploadStatus by rememberSaveable { mutableStateOf("等待上传") }
 
-    var showSuccessDialog by remember { mutableStateOf(false) }
-    var showErrorDialog by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf("") }
+    var showSuccessDialog by rememberSaveable { mutableStateOf(false) }
+    var showErrorDialog by rememberSaveable { mutableStateOf(false) }
+    var showFileTypeErrorDialog by rememberSaveable { mutableStateOf(false) }
+    var showFileSizeErrorDialog by rememberSaveable { mutableStateOf(false) }
+    var showGuestErrorDialog by rememberSaveable { mutableStateOf(false) }
+    var errorMessage by rememberSaveable { mutableStateOf("") }
+
+    val allowedExtensions = listOf("jpg", "png", "jpeg", "gif", "mp3", "wav", "txt", "lua", "json", "md")
+    val maxFileSize = 20 * 1024 * 1024L // 20MB
+
+    fun isFileTypeAllowed(fileName: String): Boolean {
+        val extension = fileName.substringAfterLast('.', "").lowercase()
+        return extension in allowedExtensions
+    }
 
     fun getFileName(context: android.content.Context, uri: Uri): String {
         var fileName: String? = null
@@ -97,6 +111,32 @@ fun PublishFileScreen(
         return fileName
     }
 
+    fun getFileSize(context: android.content.Context, uri: Uri): Long {
+        return try {
+            val scheme = uri.scheme
+            if (scheme == null || scheme == "content") {
+                val projection = arrayOf(MediaStore.Files.FileColumns.SIZE)
+                val cursor = context.contentResolver.query(uri, projection, null, null, null)
+                if (cursor != null && cursor.moveToFirst()) {
+                    val columnIndex = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.SIZE)
+                    val size = cursor.getLong(columnIndex)
+                    cursor.close()
+                    size
+                } else {
+                    cursor?.close()
+                    0L
+                }
+            } else if (scheme == "file") {
+                val file = java.io.File(uri.path ?: "")
+                if (file.exists()) file.length() else 0L
+            } else {
+                0L
+            }
+        } catch (e: Exception) {
+            0L
+        }
+    }
+
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -105,6 +145,7 @@ fun PublishFileScreen(
             if (data != null && data.data != null) {
                 fileUri = data.data
                 fileName = getFileName(context, data.data!!)
+                fileSize = getFileSize(context, data.data!!)
                 fileError = null
                 Toast.makeText(context, "文件已选择", Toast.LENGTH_SHORT).show()
             }
@@ -182,12 +223,30 @@ fun PublishFileScreen(
     }
 
     fun onNextClick() {
-        if (validateCurrentStep()) {
-            if (currentStep < totalSteps) {
-                currentStep++
-            } else {
-                uploadFile()
+        if (!validateCurrentStep()) return
+
+        if (currentStep == 1 && fileUri != null) {
+            if (!isFileTypeAllowed(fileName)) {
+                showFileTypeErrorDialog = true
+                return
             }
+            if (fileSize > maxFileSize) {
+                showFileSizeErrorDialog = true
+                return
+            }
+        }
+
+        if (currentStep == totalSteps) {
+            if (isGuestMode) {
+                showGuestErrorDialog = true
+                return
+            }
+        }
+
+        if (currentStep < totalSteps) {
+            currentStep++
+        } else {
+            uploadFile()
         }
     }
 
@@ -394,5 +453,58 @@ fun PublishFileScreen(
         confirmButtonText = "知道了",
         onConfirm = { showErrorDialog = false },
         onDismiss = { showErrorDialog = false }
+    )
+
+    InfoDialog(
+        show = showFileTypeErrorDialog,
+        title = "文件类型不支持",
+        message = "上传文件仅支持以下后缀：jpg、png、jpeg、gif、mp3、wav、txt、lua、json、md",
+        confirmButtonText = "确定",
+        onConfirm = {
+            showFileTypeErrorDialog = false
+            currentStep = 1
+            fileUri = null
+            fileName = ""
+        },
+        onDismiss = {
+            showFileTypeErrorDialog = false
+            currentStep = 1
+            fileUri = null
+            fileName = ""
+        }
+    )
+
+    InfoDialog(
+        show = showFileSizeErrorDialog,
+        title = "文件过大",
+        message = "文件大小超过20MB了！要撑死服务器啊！",
+        confirmButtonText = "确定",
+        onConfirm = {
+            showFileSizeErrorDialog = false
+            currentStep = 1
+            fileUri = null
+            fileName = ""
+            fileSize = 0L
+        },
+        onDismiss = {
+            showFileSizeErrorDialog = false
+            currentStep = 1
+            fileUri = null
+            fileName = ""
+            fileSize = 0L
+        }
+    )
+
+    InfoDialog(
+        show = showGuestErrorDialog,
+        title = "无法上传",
+        message = "访客模式不支持上传操作，请先登录。",
+        confirmButtonText = "确定",
+        onConfirm = {
+            showGuestErrorDialog = false
+        },
+        onDismiss = {
+            showGuestErrorDialog = false
+        }
     )
 }

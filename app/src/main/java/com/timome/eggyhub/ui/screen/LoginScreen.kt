@@ -28,6 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -102,30 +103,30 @@ fun LoginScreen(
     onForgotPasswordClick: () -> Unit = {},
     onExportRequested: (DataCollectionConfig, (Boolean) -> Unit) -> Unit = { _, _ -> }
 ) {
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var isLoading by remember { mutableStateOf(false) }
-    var passwordVisible by remember { mutableStateOf(false) }
+    var email by rememberSaveable { mutableStateOf("") }
+    var password by rememberSaveable { mutableStateOf("") }
+    var isLoading by rememberSaveable { mutableStateOf(false) }
+    var passwordVisible by rememberSaveable { mutableStateOf(false) }
 
-    var emailError by remember { mutableStateOf<String?>(null) }
-    var passwordError by remember { mutableStateOf<String?>(null) }
+    var emailError by rememberSaveable { mutableStateOf<String?>(null) }
+    var passwordError by rememberSaveable { mutableStateOf<String?>(null) }
 
     // 连续点击"登录"文本的计数
-    var clickCount by remember { mutableStateOf(0) }
-    var lastClickTime by remember { mutableStateOf(0L) }
+    var clickCount by rememberSaveable { mutableStateOf(0) }
+    var lastClickTime by rememberSaveable { mutableStateOf(0L) }
 
     // 错误弹窗状态
-    var showPasswordErrorDialog by remember { mutableStateOf(false) }
-    var showLoginErrorDialog by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf("") }
+    var showPasswordErrorDialog by rememberSaveable { mutableStateOf(false) }
+    var showLoginErrorDialog by rememberSaveable { mutableStateOf(false) }
+    var errorMessage by rememberSaveable { mutableStateOf("") }
 
     // 导出logcat相关状态
-    var showExportWarningDialog by remember { mutableStateOf(false) }
-    var showExportProgressDialog by remember { mutableStateOf(false) }
-    var showDataCollectionDialog by remember { mutableStateOf(false) }
+    var showExportWarningDialog by rememberSaveable { mutableStateOf(false) }
+    var showExportProgressDialog by rememberSaveable { mutableStateOf(false) }
+    var showDataCollectionDialog by rememberSaveable { mutableStateOf(false) }
 
     // 人机验证弹窗状态
-    var showCaptchaDialog by remember { mutableStateOf(false) }
+    var showCaptchaDialog by rememberSaveable { mutableStateOf(false) }
 
     // 当前登录请求引用，用于点击"取消"按钮时取消请求
     var currentLoginCall by remember { mutableStateOf<Call?>(null) }

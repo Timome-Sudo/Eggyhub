@@ -31,6 +31,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -70,51 +71,51 @@ fun RegisterScreen(
     onRegisterSuccess: () -> Unit = {}
 ) {
     val totalSteps = 5
-    var currentStep by remember { mutableStateOf(1) }
+    var currentStep by rememberSaveable { mutableStateOf(1) }
 
     // 表单输入
-    var email by remember { mutableStateOf("") }
-    var username by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var confirmPassword by remember { mutableStateOf("") }
-    var invite by remember { mutableStateOf("") }
+    var email by rememberSaveable { mutableStateOf("") }
+    var username by rememberSaveable { mutableStateOf("") }
+    var password by rememberSaveable { mutableStateOf("") }
+    var confirmPassword by rememberSaveable { mutableStateOf("") }
+    var invite by rememberSaveable { mutableStateOf("") }
 
     // 密码可见性
-    var passwordVisible by remember { mutableStateOf(false) }
-    var confirmPasswordVisible by remember { mutableStateOf(false) }
+    var passwordVisible by rememberSaveable { mutableStateOf(false) }
+    var confirmPasswordVisible by rememberSaveable { mutableStateOf(false) }
 
     // 错误状态
-    var emailError by remember { mutableStateOf<String?>(null) }
-    var usernameError by remember { mutableStateOf<String?>(null) }
-    var passwordError by remember { mutableStateOf<String?>(null) }
-    var confirmPasswordError by remember { mutableStateOf<String?>(null) }
-    var inviteError by remember { mutableStateOf<String?>(null) }
+    var emailError by rememberSaveable { mutableStateOf<String?>(null) }
+    var usernameError by rememberSaveable { mutableStateOf<String?>(null) }
+    var passwordError by rememberSaveable { mutableStateOf<String?>(null) }
+    var confirmPasswordError by rememberSaveable { mutableStateOf<String?>(null) }
+    var inviteError by rememberSaveable { mutableStateOf<String?>(null) }
 
     // 是否正在提交
-    var isSubmitting by remember { mutableStateOf(false) }
+    var isSubmitting by rememberSaveable { mutableStateOf(false) }
 
     // 成功提示对话框
-    var showSuccessDialog by remember { mutableStateOf(false) }
-    var successMessage by remember { mutableStateOf("") }
+    var showSuccessDialog by rememberSaveable { mutableStateOf(false) }
+    var successMessage by rememberSaveable { mutableStateOf("") }
 
     // 错误提示对话框
-    var showErrorDialog by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf("") }
+    var showErrorDialog by rememberSaveable { mutableStateOf(false) }
+    var errorMessage by rememberSaveable { mutableStateOf("") }
 
     // 用户名重复专用弹窗
-    var showUsernameDuplicateDialog by remember { mutableStateOf(false) }
+    var showUsernameDuplicateDialog by rememberSaveable { mutableStateOf(false) }
 
     // 修改用户名弹窗
-    var showUsernameEditDialog by remember { mutableStateOf(false) }
+    var showUsernameEditDialog by rememberSaveable { mutableStateOf(false) }
 
     // 邮箱重复/错误专用弹窗
-    var showEmailDuplicateDialog by remember { mutableStateOf(false) }
+    var showEmailDuplicateDialog by rememberSaveable { mutableStateOf(false) }
 
     // 修改邮箱弹窗
-    var showEmailEditDialog by remember { mutableStateOf(false) }
+    var showEmailEditDialog by rememberSaveable { mutableStateOf(false) }
 
     // 人机验证弹窗
-    var showCaptchaDialog by remember { mutableStateOf(false) }
+    var showCaptchaDialog by rememberSaveable { mutableStateOf(false) }
 
     val mainHandler = Handler(Looper.getMainLooper())
 

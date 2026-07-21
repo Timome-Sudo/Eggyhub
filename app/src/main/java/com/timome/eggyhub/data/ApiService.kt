@@ -924,7 +924,7 @@ object ApiService {
             val call = httpClient.newCall(request)
             call.enqueue(object : Callback {
                 override fun onFailure(call: Call, e: IOException) {
-                    onFailure("上传失败")
+                    onFailure("上传失败，请检查网络连接")
                 }
 
                 override fun onResponse(call: Call, response: Response) {
@@ -958,6 +958,72 @@ object ApiService {
             }
             byteBuffer.toByteArray()
         }
+    }
+
+    fun downloadFile(
+        accessToken: String,
+        url: String,
+        destFile: java.io.File,
+        onSuccess: () -> Unit,
+        onFailure: (String) -> Unit,
+        onProgress: (Long, Long, Double) -> Unit = { _, _, _ -> }
+    ): Call {
+        val request = Request.Builder()
+            .url(url)
+            .get()
+            .addHeader("Authorization", "Bearer $accessToken")
+            .build()
+
+        val call = httpClient.newCall(request)
+        call.enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                onFailure(e.message ?: "下载失败")
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                if (!response.isSuccessful) {
+                    onFailure("下载失败，响应码: ${response.code}")
+                    return
+                }
+
+                val body = response.body
+                if (body == null) {
+                    onFailure("下载失败，响应体为空")
+                    return
+                }
+
+                val totalBytes = body.contentLength()
+                var downloadedBytes = 0L
+                val startTime = System.currentTimeMillis()
+
+                try {
+                    val inputStream = body.byteStream()
+                    val outputStream = java.io.FileOutputStream(destFile)
+                    val buffer = ByteArray(8192)
+                    var len: Int
+
+                    while (inputStream.read(buffer).also { len = it } != -1) {
+                        outputStream.write(buffer, 0, len)
+                        downloadedBytes += len
+
+                        val elapsedTime = (System.currentTimeMillis() - startTime).toDouble() / 1000.0
+                        val speed = if (elapsedTime > 0) downloadedBytes / elapsedTime else 0.0
+
+                        onProgress(downloadedBytes, totalBytes, speed)
+                    }
+
+                    outputStream.flush()
+                    outputStream.close()
+                    inputStream.close()
+
+                    onSuccess()
+                } catch (e: Exception) {
+                    onFailure("下载失败: ${e.message}")
+                }
+            }
+        })
+
+        return call
     }
 
     // ========== 内容管理相关API ==========
@@ -1038,7 +1104,8 @@ object ApiService {
         val fileType: String,
         val originalName: String,
         val status: Int,
-        val uploadTime: String
+        val uploadTime: String,
+        val repoId: Int = 0
     )
 
     data class UserRepoResponse(
@@ -1532,6 +1599,7 @@ object ApiService {
 
         val files = mutableListOf<ManageFile>()
         val filesArray = obj.optJSONArray("files")
+        val repoId = repoObj?.optInt("repo_id", 0) ?: 0
         if (filesArray != null) {
             for (i in 0 until filesArray.length()) {
                 val fileObj = filesArray.getJSONObject(i)
@@ -1543,7 +1611,8 @@ object ApiService {
                         fileType = fileObj.optString("file_type", ""),
                         originalName = fileObj.optString("original_name", ""),
                         status = fileObj.optInt("status", 0),
-                        uploadTime = fileObj.optString("upload_time", "")
+                        uploadTime = fileObj.optString("upload_time", ""),
+                        repoId = repoId
                     )
                 )
             }
